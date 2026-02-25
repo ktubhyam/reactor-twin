@@ -2,6 +2,8 @@
 
 Surrogate digital twin for industrial chemical reactors using neural ODEs and physics-informed neural networks (PINNs).
 
+**[Project Page](https://tubhyam.dev/projects/reactor-twin)**
+
 ## What Is This?
 
 ReactorTwin creates fast, accurate surrogate models of chemical reactors that run 1000x faster than traditional CFD simulations while preserving physical constraints. It enables real-time monitoring, optimization, and what-if analysis for industrial chemical processes.
