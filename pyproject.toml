@@ -44,6 +44,10 @@ thermo = ["cantera", "coolprop"]
 analysis = ["SALib>=1.4"]
 tracking = ["wandb"]
 deploy = ["onnx", "onnxruntime"]
+docs = [
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.24",
+]
 dev = [
     "pytest>=7.4",
     "pytest-cov>=4.1",
@@ -52,7 +56,7 @@ dev = [
     "mypy>=1.7",
     "pre-commit>=3.6",
 ]
-all = ["reactor-twin[dashboard,digital_twin,api,sde,cde,fast,analysis,dev]"]
+all = ["reactor-twin[dashboard,digital_twin,api,sde,cde,fast,analysis,docs,dev]"]
 
 [project.scripts]
 reactor-twin-dashboard = "reactor_twin.dashboard.app:main"
@@ -61,7 +65,7 @@ reactor-twin-api = "reactor_twin.api.server:main"  # Requires [api] extra
 [project.urls]
 Homepage = "https://github.com/ktubhyam/reactor-twin"
 Repository = "https://github.com/ktubhyam/reactor-twin"
-Documentation = "https://github.com/ktubhyam/reactor-twin"
+Documentation = "https://ktubhyam.github.io/reactor-twin"
 
 [build-system]
 requires = ["setuptools>=68"]
