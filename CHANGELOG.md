@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 5)
+- EKFStateEstimator with Neural ODE fusion and autograd Jacobian computation
+- FaultDetector with 4-level detection: SPC (EWMA/CUSUM), residual-based, isolation, ML classification
+- MPCController with gradient-based optimization (LBFGS), constraint handling, and warm-starting
+- OnlineAdapter with replay buffer and Elastic Weight Consolidation for continual learning
+- ReptileMetaLearner for cross-reactor transfer and few-shot adaptation
+- Streamlit Dashboard with 10 interactive pages:
+  - Reactor Simulator, Phase Portraits, Bifurcation Diagrams
+  - RTD Analysis, Parameter Sweeps, Sensitivity Analysis
+  - Pareto Optimization, Fault Monitoring, Model Validation, Latent Explorer
+
 ### Added (Phase 4)
 - BatchReactor with time-varying volume for gas-phase reactions
 - SemiBatchReactor with continuous feed and no outflow
