@@ -1055,22 +1055,26 @@ class TestBenchmarkSystems:
         assert reactor.kinetics.num_reactions == 3
 
     # -- Consecutive A->B->C CSTR --
-    # NOTE: create_consecutive_cstr uses "C_in"/"T" keys instead of
-    # "C_feed"/"T_feed" required by CSTRReactor, which causes a ValueError.
-    # These tests verify the expected failure and serve as regression markers.
 
-    def test_create_consecutive_cstr_raises_missing_param(self):
-        """create_consecutive_cstr uses incompatible param keys for CSTRReactor."""
-        with pytest.raises(ValueError, match="Missing required parameter"):
-            create_consecutive_cstr(name="cons_test", isothermal=True)
+    def test_create_consecutive_cstr_isothermal(self):
+        reactor = create_consecutive_cstr(name="cons_test", isothermal=True)
+        assert isinstance(reactor, CSTRReactor)
+        assert reactor.num_species == 3
+        y0 = reactor.get_initial_state()
+        dy = reactor.ode_rhs(0.0, y0)
+        assert dy.shape == (reactor.state_dim,)
+        assert np.all(np.isfinite(dy))
 
     # -- Parallel A->B, A->C CSTR --
-    # NOTE: Same issue as consecutive -- uses "C_in"/"T" instead of "C_feed"/"T_feed".
 
-    def test_create_parallel_cstr_raises_missing_param(self):
-        """create_parallel_cstr uses incompatible param keys for CSTRReactor."""
-        with pytest.raises(ValueError, match="Missing required parameter"):
-            create_parallel_cstr(name="par_test", isothermal=True)
+    def test_create_parallel_cstr_isothermal(self):
+        reactor = create_parallel_cstr(name="par_test", isothermal=True)
+        assert isinstance(reactor, CSTRReactor)
+        assert reactor.num_species == 3
+        y0 = reactor.get_initial_state()
+        dy = reactor.ode_rhs(0.0, y0)
+        assert dy.shape == (reactor.state_dim,)
+        assert np.all(np.isfinite(dy))
 
     # -- Bioreactor CSTR --
 
