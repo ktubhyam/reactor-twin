@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from reactor_twin.utils.constants import R_GAS
 from reactor_twin.utils.registry import (
     CONSTRAINT_REGISTRY,
     DIGITAL_TWIN_REGISTRY,
@@ -22,4 +23,5 @@ __all__ = [
     "SOLVER_REGISTRY",
     "ODE_FUNC_REGISTRY",
     "DIGITAL_TWIN_REGISTRY",
+    "R_GAS",
 ]
