@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 4)
+- BatchReactor with time-varying volume for gas-phase reactions
+- SemiBatchReactor with continuous feed and no outflow
+- PlugFlowReactor (PFR) with Method of Lines discretization
+- MichaelisMentenKinetics for enzyme-catalyzed reactions with competitive inhibition
+- PowerLawKinetics for empirical rate expressions with temperature dependence
+- LangmuirHinshelwoodKinetics for heterogeneous catalysis on surfaces
+- ReversibleKinetics for equilibrium-limited reactions with forward/reverse rates
+- Bioreactor CSTR benchmark with Monod growth kinetics (substrate, biomass, product)
+- Consecutive reactions CSTR benchmark (A→B→C) with selectivity analysis
+- Parallel competing reactions CSTR benchmark (A→B, A→C) with yield optimization
+
 ### Added (Phase 3)
 - Latent Neural ODE with encoder-decoder architecture for high-dimensional systems
 - Augmented Neural ODE with extra dimensions for expressivity

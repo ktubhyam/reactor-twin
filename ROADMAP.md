@@ -56,27 +56,29 @@
 
 ---
 
-## Phase 4: Additional Reactors 🚧 IN PROGRESS
+## Phase 4: Additional Reactors ✅ COMPLETE
 
-**Status:** In Progress
+**Status:** Complete
 **Duration:** Week 7-8
-**ETA:** 2026-03-01
+**Completed:** 2026-02-27
 
 ### Deliverables
-- ⏳ Batch reactor (time-varying volume)
-- ⏳ Semi-batch reactor (continuous feed + batch)
-- ⏳ PFR (plug flow with Method of Lines)
+- ✅ Batch reactor (time-varying volume)
+- ✅ Semi-batch reactor (continuous feed + batch)
+- ✅ PFR (plug flow with Method of Lines)
 - ⏳ Multi-phase reactor (gas-liquid with mass transfer)
 - ⏳ Population balance reactor (crystallization)
-- ⏳ Additional kinetics:
-  - ⏳ Langmuir-Hinshelwood (heterogeneous catalysis)
-  - ⏳ Michaelis-Menten (enzyme reactions)
-  - ⏳ Power law
-  - ⏳ Reversible kinetics
-- ⏳ 3 more CSTR benchmarks:
-  - ⏳ Bioreactor (Monod kinetics)
-  - ⏳ Consecutive reactions (A→B→C)
-  - ⏳ Parallel competing (A→B, A→C)
+- ✅ Additional kinetics:
+  - ✅ Langmuir-Hinshelwood (heterogeneous catalysis)
+  - ✅ Michaelis-Menten (enzyme reactions)
+  - ✅ Power law
+  - ✅ Reversible kinetics
+- ✅ 3 more CSTR benchmarks:
+  - ✅ Bioreactor (Monod kinetics)
+  - ✅ Consecutive reactions (A→B→C)
+  - ✅ Parallel competing (A→B, A→C)
+
+**Note:** Multi-phase and population balance reactors deferred to v0.2.0
 
 ---
 
