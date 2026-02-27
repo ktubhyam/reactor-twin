@@ -5,6 +5,24 @@ All notable changes to ReactorTwin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- ONNX export for trained Neural ODE models (`src/reactor_twin/export/`)
+- Docker support (Dockerfile, docker-compose.yml, GHCR publishing workflow)
+- WebSocket streaming for real-time simulation (`src/reactor_twin/api/websocket.py`)
+- Multi-phase reactor with gas-liquid mass transfer (`src/reactor_twin/reactors/multi_phase.py`)
+- Population balance reactor for crystallization modeling (`src/reactor_twin/reactors/population_balance.py`)
+- Custom exception hierarchy (`ReactorTwinError`, `SolverError`, `ValidationError`)
+- Codecov badge and integration
+- Performance regression tracking
+
+### Changed
+- API hardening with proper HTTP error codes, request validation, OpenAPI docs
+- Example validation added to CI pipeline
+- Notebook execution added to CI pipeline
+- Codecov enforcement — CI fails if coverage drops below 85%
+
 ## [0.1.0] - 2026-02-28
 
 ### Added (Phase 6 -- Polish & Release)
@@ -139,3 +157,7 @@ Initial architecture setup. Foundation for physics-constrained Neural DEs.
 - Full project configuration (pyproject.toml, CI/CD, documentation)
 - MIT License
 - README with quickstart and examples
+
+[Unreleased]: https://github.com/ktubhyam/reactor-twin/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ktubhyam/reactor-twin/compare/v0.0.1...v0.1.0
+[0.0.1]: https://github.com/ktubhyam/reactor-twin/releases/tag/v0.0.1
