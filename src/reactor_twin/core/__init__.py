@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from reactor_twin.core.augmented_neural_ode import AugmentedNeuralODE
 from reactor_twin.core.base import AbstractNeuralDE
+from reactor_twin.core.latent_neural_ode import Decoder, Encoder, LatentNeuralODE
+from reactor_twin.core.neural_cde import CDEFunc, NeuralCDE
 from reactor_twin.core.neural_ode import NeuralODE
+from reactor_twin.core.neural_sde import NeuralSDE, SDEFunc
 from reactor_twin.core.ode_func import (
     AbstractODEFunc,
     HybridODEFunc,
@@ -18,6 +22,16 @@ __all__ = [
     "AbstractODEFunc",
     # Neural DE implementations
     "NeuralODE",
+    "LatentNeuralODE",
+    "AugmentedNeuralODE",
+    "NeuralSDE",
+    "NeuralCDE",
+    # Encoder/Decoder for Latent ODE
+    "Encoder",
+    "Decoder",
+    # SDE/CDE functions
+    "SDEFunc",
+    "CDEFunc",
     # ODE functions
     "MLPODEFunc",
     "ResNetODEFunc",
