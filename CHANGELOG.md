@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Phase 6 -- Polish & Release)
+- 5 tutorial Jupyter notebooks (getting started, physics constraints, advanced Neural DEs, digital twin pipeline, custom extensions)
+- Complete MkDocs API documentation with mkdocstrings for all public classes
+- Tutorial documentation pages linked to notebooks
+- Tutorials section added to MkDocs navigation
+- ruff lint + format clean across all 81 source files
+- Per-file ruff ignores for examples (PLR0915, B007)
+- GitHub CI/CD: pre-commit config, issue/PR templates, PyPI release workflow
+- PEP 561 py.typed marker for type checker support
+
 ### Added (Phase 5 -- Digital Twin)
 - EKFStateEstimator with Neural ODE fusion and autograd Jacobian computation
   - Joseph form covariance update for numerical stability
