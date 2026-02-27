@@ -63,7 +63,7 @@ def main() -> None:
     # 2. Generate training data
     print("\n2. Generating training data with scipy...")
     y0 = reactor.get_initial_state()
-    t_span = np.linspace(0, 100, 50)
+    t_span = np.linspace(0, 10, 50)
 
     sol = solve_ivp(
         reactor.ode_rhs,
@@ -88,8 +88,8 @@ def main() -> None:
         state_dim=2,
         hidden_dim=32,
         num_layers=2,
-        solver="dopri5",
-        adjoint=True,
+        solver="rk4",
+        adjoint=False,
     )
     print(f"   Model: {model}")
     print(f"   Parameters: {sum(p.numel() for p in model.parameters()):,}")
@@ -104,11 +104,14 @@ def main() -> None:
 
     print(f"   Initial loss: {losses['total']:.6f}")
 
-    # Single training step
-    losses_after = model.train_step(
-        batch={"z0": z0, "t_span": t_span_torch, "targets": targets},
-        optimizer=optimizer,
-    )
+    # Single training step with gradient clipping for stability
+    optimizer.zero_grad()
+    preds = model(z0, t_span_torch)
+    loss_dict = model.compute_loss(preds, targets)
+    loss_dict["total"].backward()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+    optimizer.step()
+    losses_after = {k: v.item() for k, v in loss_dict.items()}
     print(f"   After 1 step: {losses_after['total']:.6f}")
 
     # 5. Apply physics constraints
