@@ -113,8 +113,8 @@ def create_parallel_cstr(
     params = {
         "V": 100.0,  # L
         "F": 50.0,  # L/min (τ = 2 min)
-        "T": 340.0,  # K
-        "C_in": [3.0, 0.0, 0.0],  # mol/L [A_in, B_in, C_in]
+        "T_feed": 340.0,  # K
+        "C_feed": [3.0, 0.0, 0.0],  # mol/L [A_in, B_in, C_in]
         "C_initial": [2.0, 0.0, 0.0],  # mol/L [A0, B0, C0]
     }
 
