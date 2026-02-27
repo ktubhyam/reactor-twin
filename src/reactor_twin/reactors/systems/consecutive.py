@@ -103,8 +103,8 @@ def create_consecutive_cstr(
     params = {
         "V": 100.0,  # L
         "F": 100.0,  # L/min (τ = 1 min)
-        "T": 350.0,  # K
-        "C_in": [2.0, 0.0, 0.0],  # mol/L [A_in, B_in, C_in]
+        "T_feed": 350.0,  # K
+        "C_feed": [2.0, 0.0, 0.0],  # mol/L [A_in, B_in, C_in]
         "C_initial": [1.0, 0.0, 0.0],  # mol/L [A0, B0, C0]
     }
 
