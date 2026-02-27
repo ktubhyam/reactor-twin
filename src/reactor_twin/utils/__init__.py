@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from reactor_twin.utils.registry import (
     CONSTRAINT_REGISTRY,
+    DIGITAL_TWIN_REGISTRY,
     KINETICS_REGISTRY,
     NEURAL_DE_REGISTRY,
     ODE_FUNC_REGISTRY,
@@ -20,4 +21,5 @@ __all__ = [
     "NEURAL_DE_REGISTRY",
     "SOLVER_REGISTRY",
     "ODE_FUNC_REGISTRY",
+    "DIGITAL_TWIN_REGISTRY",
 ]

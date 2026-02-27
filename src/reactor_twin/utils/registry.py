@@ -105,6 +105,7 @@ CONSTRAINT_REGISTRY = Registry("constraints")
 NEURAL_DE_REGISTRY = Registry("neural_des")
 SOLVER_REGISTRY = Registry("solvers")
 ODE_FUNC_REGISTRY = Registry("ode_funcs")
+DIGITAL_TWIN_REGISTRY = Registry("digital_twin")
 
 
 __all__ = [
@@ -115,4 +116,5 @@ __all__ = [
     "NEURAL_DE_REGISTRY",
     "SOLVER_REGISTRY",
     "ODE_FUNC_REGISTRY",
+    "DIGITAL_TWIN_REGISTRY",
 ]
