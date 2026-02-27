@@ -122,9 +122,10 @@ class SPCChart:
 
         z = (x - self.mean) / self.std  # standardized
 
-        # EWMA update
+        # EWMA update: ewma_new = lambda * x_new + (1 - lambda) * ewma_prev
         lam = self.ewma_lambda
-        self._ewma = lam * x + (1 - lam) * self._ewma  # type: ignore[operator]
+        ewma_prev = self._ewma
+        self._ewma = lam * x + (1 - lam) * ewma_prev  # type: ignore[operator]
         ewma_z = (self._ewma - self.mean) / self.std  # type: ignore[operator]
         ewma_limit = self.ewma_L * np.sqrt(lam / (2 - lam))
         ewma_alarm = np.abs(ewma_z) > ewma_limit

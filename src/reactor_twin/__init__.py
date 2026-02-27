@@ -20,9 +20,28 @@ from reactor_twin.physics import (
     StoichiometricConstraint,
     ThermodynamicConstraint,
 )
-from reactor_twin.reactors import AbstractReactor, CSTRReactor
-from reactor_twin.reactors.kinetics import AbstractKinetics, ArrheniusKinetics
-from reactor_twin.reactors.systems import create_exothermic_cstr, create_van_de_vusse_cstr
+from reactor_twin.reactors import (
+    AbstractReactor,
+    BatchReactor,
+    CSTRReactor,
+    PlugFlowReactor,
+    SemiBatchReactor,
+)
+from reactor_twin.reactors.kinetics import (
+    AbstractKinetics,
+    ArrheniusKinetics,
+    LangmuirHinshelwoodKinetics,
+    MichaelisMentenKinetics,
+    PowerLawKinetics,
+    ReversibleKinetics,
+)
+from reactor_twin.reactors.systems import (
+    create_bioreactor_cstr,
+    create_consecutive_cstr,
+    create_exothermic_cstr,
+    create_parallel_cstr,
+    create_van_de_vusse_cstr,
+)
 from reactor_twin.training import MultiObjectiveLoss, ReactorDataGenerator, Trainer
 from reactor_twin.digital_twin import (
     EKFStateEstimator,
@@ -48,13 +67,23 @@ __all__ = [
     "NeuralODE",
     # Reactors
     "AbstractReactor",
+    "BatchReactor",
     "CSTRReactor",
+    "PlugFlowReactor",
+    "SemiBatchReactor",
     # Benchmark Systems
+    "create_bioreactor_cstr",
+    "create_consecutive_cstr",
     "create_exothermic_cstr",
+    "create_parallel_cstr",
     "create_van_de_vusse_cstr",
     # Kinetics
     "AbstractKinetics",
     "ArrheniusKinetics",
+    "LangmuirHinshelwoodKinetics",
+    "MichaelisMentenKinetics",
+    "PowerLawKinetics",
+    "ReversibleKinetics",
     # Physics Constraints
     "AbstractConstraint",
     "ConstraintPipeline",

@@ -69,11 +69,13 @@ class EnergyBalanceConstraint(AbstractConstraint):
         Returns:
             State with temperature computed from energy balance.
         """
-        # Hard energy balance constraint requires integration into ODE dynamics
-        # This would be implemented in a HybridODEFunc or reactor-specific ODE function
+        # Hard energy balance projection is not feasible from state alone
+        # because it requires reaction rates, heat transfer coefficients, etc.
+        # It must be enforced within the ODE function via HybridODEFunc.
+        # Fall back to soft mode penalty for standalone usage.
         logger.warning(
-            "Hard energy balance constraint requires integration into ODE function. "
-            "Returning state unchanged."
+            "Hard energy balance is not supported as standalone projection. "
+            "Use soft mode, or enforce via HybridODEFunc. Returning state unchanged."
         )
         return z
 

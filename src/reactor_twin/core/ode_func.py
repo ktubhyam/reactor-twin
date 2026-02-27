@@ -133,7 +133,12 @@ class MLPODEFunc(AbstractODEFunc):
 
 
 class ResNetODEFunc(AbstractODEFunc):
-    """ODE function with residual connections."""
+    """ODE function with residual connections.
+
+    Each residual block computes: h = h + activation(linear(h)).
+    An input projection maps [z, t, u] to hidden_dim, and an output
+    projection maps hidden_dim back to state_dim.
+    """
 
     def __init__(
         self,
@@ -141,17 +146,46 @@ class ResNetODEFunc(AbstractODEFunc):
         hidden_dim: int = 64,
         num_layers: int = 3,
         input_dim: int = 0,
+        activation: str = "softplus",
     ):
         """Initialize ResNet ODE function.
 
         Args:
             state_dim: State dimension.
-            hidden_dim: Hidden layer width (must equal state_dim for residuals).
+            hidden_dim: Hidden layer width.
             num_layers: Number of residual blocks.
             input_dim: Control input dimension.
+            activation: Activation function name.
         """
         super().__init__(state_dim, input_dim)
-        raise NotImplementedError("TODO: Implement ResNetODEFunc")
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+
+        total_input = state_dim + input_dim + 1  # z + u + t
+        self.input_proj = nn.Linear(total_input, hidden_dim)
+
+        act_fn: nn.Module
+        if activation == "softplus":
+            act_fn = nn.Softplus()
+        elif activation == "tanh":
+            act_fn = nn.Tanh()
+        elif activation == "relu":
+            act_fn = nn.ReLU()
+        else:
+            raise ValueError(f"Unknown activation: {activation}")
+
+        blocks: list[nn.Module] = []
+        for _ in range(num_layers):
+            blocks.append(
+                nn.Sequential(nn.Linear(hidden_dim, hidden_dim), act_fn)
+            )
+        self.blocks = nn.ModuleList(blocks)
+
+        self.output_proj = nn.Linear(hidden_dim, state_dim)
+        logger.debug(
+            f"Initialized ResNetODEFunc: state_dim={state_dim}, "
+            f"hidden={hidden_dim}, blocks={num_layers}"
+        )
 
     def forward(
         self,
@@ -160,7 +194,21 @@ class ResNetODEFunc(AbstractODEFunc):
         u: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute dz/dt with residual connections."""
-        raise NotImplementedError("TODO: Implement ResNetODEFunc.forward()")
+        batch_size = z.shape[0]
+        if t.ndim == 0:
+            t_expand = t.expand(batch_size, 1)
+        else:
+            t_expand = t.reshape(batch_size, 1)
+
+        inputs = [z, t_expand]
+        if u is not None:
+            inputs.append(u)
+        x = torch.cat(inputs, dim=-1)
+
+        h = self.input_proj(x)
+        for block in self.blocks:
+            h = h + block(h)
+        return self.output_proj(h)
 
 
 class HybridODEFunc(AbstractODEFunc):
@@ -212,18 +260,58 @@ class PortHamiltonianODEFunc(AbstractODEFunc):
     """Port-Hamiltonian structure-preserving ODE function.
 
     Enforces dz/dt = (J - R) * grad_H(z) + B * u
-    where J is skew-symmetric, R is positive semi-definite.
+    where J is skew-symmetric, R is positive semi-definite, and
+    H(z) is a learned Hamiltonian (energy) function.
     """
 
-    def __init__(self, state_dim: int, input_dim: int = 0):
+    def __init__(
+        self,
+        state_dim: int,
+        input_dim: int = 0,
+        hidden_dim: int = 64,
+    ):
         """Initialize Port-Hamiltonian ODE function.
 
         Args:
-            state_dim: State dimension (must be even for J matrix structure).
+            state_dim: State dimension.
             input_dim: Control input dimension.
+            hidden_dim: Hidden dimension for Hamiltonian network.
         """
         super().__init__(state_dim, input_dim)
-        raise NotImplementedError("TODO: Implement PortHamiltonianODEFunc")
+
+        # J parameter: skew-symmetric via J = A - A^T
+        self.J_param = nn.Parameter(torch.randn(state_dim, state_dim) * 0.1)
+
+        # R parameter: PSD via R = B B^T
+        self.R_factor = nn.Parameter(torch.randn(state_dim, state_dim) * 0.1)
+
+        # Input matrix B
+        if input_dim > 0:
+            self.B = nn.Parameter(torch.randn(state_dim, input_dim) * 0.1)
+        else:
+            self.register_buffer("B", torch.zeros(state_dim, 1))
+
+        # Hamiltonian network H(z) -> scalar
+        self.hamiltonian_net = nn.Sequential(
+            nn.Linear(state_dim, hidden_dim),
+            nn.Softplus(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Softplus(),
+            nn.Linear(hidden_dim, 1),
+        )
+        logger.debug(f"Initialized PortHamiltonianODEFunc: state_dim={state_dim}")
+
+    def get_J(self) -> torch.Tensor:
+        """Get skew-symmetric J matrix."""
+        return self.J_param - self.J_param.T
+
+    def get_R(self) -> torch.Tensor:
+        """Get positive semi-definite R matrix."""
+        return self.R_factor @ self.R_factor.T
+
+    def hamiltonian(self, z: torch.Tensor) -> torch.Tensor:
+        """Compute Hamiltonian H(z), shape (batch,)."""
+        return self.hamiltonian_net(z).squeeze(-1)
 
     def forward(
         self,
@@ -231,8 +319,21 @@ class PortHamiltonianODEFunc(AbstractODEFunc):
         z: torch.Tensor,
         u: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """Compute Port-Hamiltonian dynamics."""
-        raise NotImplementedError("TODO: Implement PortHamiltonianODEFunc.forward()")
+        """Compute dz/dt = (J - R) grad_H(z) + B u."""
+        z_in = z.detach().requires_grad_(True)
+        H = self.hamiltonian(z_in)
+        grad_H = torch.autograd.grad(H.sum(), z_in, create_graph=True)[0]
+
+        J = self.get_J()
+        R = self.get_R()
+        JR = J - R  # (state_dim, state_dim)
+
+        dz_dt = torch.einsum("ij,bj->bi", JR, grad_H)
+
+        if u is not None and self.input_dim > 0:
+            dz_dt = dz_dt + torch.einsum("ij,bj->bi", self.B, u)
+
+        return dz_dt
 
 
 __all__ = [

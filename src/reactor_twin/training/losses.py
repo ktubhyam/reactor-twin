@@ -76,9 +76,9 @@ class MultiObjectiveLoss(nn.Module):
         Returns:
             Scalar physics loss.
         """
-        # Placeholder: Could compute energy balance error, mass balance error, etc.
-        # For now, return zero (no physics loss beyond constraints)
-        return torch.tensor(0.0, device=predictions.device)
+        # Physics loss delegates to constraints. Override this method in subclasses
+        # to add system-specific physics losses (e.g., energy/mass balance residuals).
+        return torch.tensor(0.0, device=predictions.device, requires_grad=False)
 
     def constraint_loss(
         self,
@@ -100,9 +100,10 @@ class MultiObjectiveLoss(nn.Module):
                 # ConstraintPipeline returns dict
                 constraint_losses.update(violation)
             else:
-                # Single constraint returns scalar
-                if violation.item() > 0:
-                    constraint_losses[constraint.name] = violation
+                # Single constraint returns scalar or multi-element tensor
+                viol_sum = violation.sum()
+                if viol_sum.item() > 0:
+                    constraint_losses[constraint.name] = viol_sum
 
         return constraint_losses
 

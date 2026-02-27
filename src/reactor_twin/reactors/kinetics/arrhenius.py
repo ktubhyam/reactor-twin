@@ -12,8 +12,7 @@ from reactor_twin.utils.registry import KINETICS_REGISTRY
 
 logger = logging.getLogger(__name__)
 
-# Gas constant (J/(mol*K))
-R_GAS = 8.314
+from reactor_twin.utils.constants import R_GAS
 
 
 @KINETICS_REGISTRY.register("arrhenius")

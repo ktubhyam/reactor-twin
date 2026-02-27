@@ -152,17 +152,18 @@ class SemiBatchReactor(AbstractReactor):
             # Heat of reaction term (placeholder - needs ΔH_rxn)
             heat_of_reaction = 0.0  # TODO: Compute from kinetics and ΔH
 
-            # Feed enthalpy change
-            feed_enthalpy = F_in * rho * Cp * (T_in - T) / V
+            # Feed enthalpy change: F_in * rho * Cp * (T_in - T) / (rho * Cp * V)
+            # Simplifies to: F_in * (T_in - T) / V
+            feed_enthalpy_term = F_in * (T_in - T) / V
 
-            dT_dt = heat_of_reaction / (rho * Cp) + feed_enthalpy / (rho * Cp) + Q_ext / (rho * Cp * V)
+            dT_dt = heat_of_reaction / (rho * Cp) + feed_enthalpy_term + Q_ext / (rho * Cp * V)
         else:
             dT_dt = None
 
         # Assemble derivative
-        dy_dt = [dC_dt, [dV_dt]]
+        dy_dt = [dC_dt, np.array([dV_dt])]
         if dT_dt is not None:
-            dy_dt.append([dT_dt])
+            dy_dt.append(np.array([dT_dt]))
 
         return np.concatenate(dy_dt)
 
@@ -175,11 +176,11 @@ class SemiBatchReactor(AbstractReactor):
         C0 = np.array(self.params.get("C_initial", np.zeros(self.num_species)))
         V0 = self.params.get("V_initial", self.params["V"])
 
-        state = [C0, [V0]]
+        state = [C0, np.array([V0])]
 
         if not self.isothermal:
             T0 = self.params.get("T_initial", self.params["T"])
-            state.append([T0])
+            state.append(np.array([T0]))
 
         return np.concatenate(state)
 

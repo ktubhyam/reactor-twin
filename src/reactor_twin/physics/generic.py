@@ -128,20 +128,17 @@ class GENERICConstraint(AbstractConstraint):
             pass  # Computed functionally
 
     def get_L_matrix(self) -> torch.Tensor:
-        """Get reversible matrix L (anti-symmetric and PSD).
+        """Get reversible matrix L (anti-symmetric).
+
+        In GENERIC, L must be anti-symmetric (L = -L^T) so that
+        energy is conserved by the reversible part: z^T L z = 0.
 
         Returns:
-            L matrix.
+            Anti-symmetric L matrix.
         """
         A = self.L_param
-        L = A - A.T  # Anti-symmetric
-
-        # Project to PSD (take positive part of eigendecomposition)
-        eigenvalues, eigenvectors = torch.linalg.eigh(L)
-        eigenvalues_pos = torch.relu(eigenvalues)
-        L_psd = eigenvectors @ torch.diag(eigenvalues_pos) @ eigenvectors.T
-
-        return L_psd
+        L = A - A.T  # Anti-symmetric by construction
+        return L
 
     def get_M_matrix(self) -> torch.Tensor:
         """Get irreversible matrix M (symmetric and PSD).

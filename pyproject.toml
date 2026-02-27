@@ -27,6 +27,7 @@ dependencies = [
     "torchdiffeq>=0.2.3",
     "numpy>=1.24",
     "scipy>=1.11",
+    "pandas>=1.5",
     "plotly>=5.18",
     "matplotlib>=3.8",
     "pydantic>=2.5",
@@ -55,7 +56,7 @@ all = ["reactor-twin[dashboard,digital_twin,api,sde,cde,fast,analysis,dev]"]
 
 [project.scripts]
 reactor-twin-dashboard = "reactor_twin.dashboard.app:main"
-reactor-twin-api = "reactor_twin.api.server:main"
+reactor-twin-api = "reactor_twin.api.server:main"  # Requires [api] extra
 
 [project.urls]
 Homepage = "https://github.com/ktubhyam/reactor-twin"

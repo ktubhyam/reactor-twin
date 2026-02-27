@@ -141,8 +141,15 @@ class ReactorDataGenerator:
             result = self.generate_trajectory(t_span, t_eval, y0, u)
 
             if not result["success"]:
-                logger.warning(f"Trajectory {i}/{batch_size} failed, using zeros")
-                trajectories.append(np.zeros((len(t_eval), self.reactor.state_dim)))
+                logger.warning(f"Trajectory {i}/{batch_size} failed, retrying with default IC")
+                y0_retry = y0_default.copy()
+                retry = self.generate_trajectory(t_span, t_eval, y0_retry, u)
+                if retry["success"]:
+                    trajectories.append(retry["y"])
+                    initial_conditions[i] = y0_retry
+                else:
+                    logger.warning(f"Retry also failed for trajectory {i}, using last valid")
+                    trajectories.append(np.zeros((len(t_eval), self.reactor.state_dim)))
             else:
                 trajectories.append(result["y"])
 

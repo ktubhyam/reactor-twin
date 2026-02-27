@@ -96,7 +96,7 @@ class ReptileMetaLearner:
             Dictionary mapping parameter names to the adapted values
             ``theta_task`` after K steps.
         """
-        # Clone model parameters to avoid in-place modification
+        # Clone model for inner-loop adaptation (isolated from meta-model)
         model_copy = copy.deepcopy(self.model)
         model_copy.to(self.device)
         model_copy.train()

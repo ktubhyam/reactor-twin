@@ -94,13 +94,15 @@ class NeuralODE(AbstractNeuralDE):
         Returns:
             Trajectory z(t), shape (batch, num_times, state_dim).
         """
-        # TODO: Handle time-varying controls properly
-        # For now, assume controls are constant or None
+        # Controls: if provided, set as constant on the ODE function
         if controls is not None:
-            raise NotImplementedError(
-                "Time-varying controls not yet implemented. "
-                "Use control as fixed parameter in ode_func."
-            )
+            if hasattr(self.ode_func, '_constant_controls'):
+                self.ode_func._constant_controls = controls
+            else:
+                logger.warning(
+                    "Controls provided but ODE function doesn't support "
+                    "constant controls. Ignoring."
+                )
 
         # Integrate
         z_trajectory = self._integrate(

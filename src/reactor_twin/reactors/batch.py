@@ -136,10 +136,11 @@ class BatchReactor(AbstractReactor):
 
         # Volume change (for gas-phase reactions, ideal gas law)
         if not self.constant_volume:
-            # Simplified: dV/dt proportional to total mole change
             # For ideal gas at constant P, T: V ~ n_total
+            # dV/dt = V * (dn/dt) / n_total
             dn_dt = rates.sum()  # Net mole change rate
-            dV_dt = dn_dt * V / C.sum()  # Proportional to current volume
+            C_total = max(C.sum(), 1e-10)  # Guard against division by zero
+            dV_dt = dn_dt * V / C_total
         else:
             dV_dt = None
 
@@ -159,9 +160,9 @@ class BatchReactor(AbstractReactor):
         # Assemble derivative
         dy_dt = [dC_dt]
         if dV_dt is not None:
-            dy_dt.append([dV_dt])
+            dy_dt.append(np.array([dV_dt]))
         if dT_dt is not None:
-            dy_dt.append([dT_dt])
+            dy_dt.append(np.array([dT_dt]))
 
         return np.concatenate(dy_dt)
 
@@ -177,11 +178,11 @@ class BatchReactor(AbstractReactor):
 
         if not self.constant_volume:
             V0 = self.params.get("V_initial", self.params["V"])
-            state.append([V0])
+            state.append(np.array([V0]))
 
         if not self.isothermal:
             T0 = self.params.get("T_initial", self.params["T"])
-            state.append([T0])
+            state.append(np.array([T0]))
 
         return np.concatenate(state)
 

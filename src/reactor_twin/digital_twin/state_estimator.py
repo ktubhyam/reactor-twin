@@ -67,6 +67,7 @@ class EKFStateEstimator:
         self.state_dim = state_dim
         self.device = torch.device(device)
         self.dt = dt
+        self._current_time: float = 0.0
 
         # Observable indices
         if obs_indices is None:
@@ -179,7 +180,7 @@ class EKFStateEstimator:
             ``(z_pred, P_pred)`` — predicted state and covariance.
         """
         dt = dt or self.dt
-        t = torch.tensor(0.0, device=self.device)
+        t = torch.tensor(self._current_time, device=self.device)
 
         # Evaluate dynamics: dz/dt = f(t, z)
         z_batch = z_est.unsqueeze(0)  # (1, state_dim)
@@ -189,9 +190,14 @@ class EKFStateEstimator:
         # Euler prediction
         z_pred = z_est + dzdt * dt
 
+        # Advance internal time
+        self._current_time += dt
+
         # Jacobian for covariance propagation
         F = self._compute_jacobian(z_est, t)
-        F_d = torch.eye(self.state_dim, device=self.device) + F * dt  # Discrete-time
+        # Matrix exponential approximation: F_d ≈ I + F*dt + 0.5*(F*dt)^2
+        F_dt = F * dt
+        F_d = torch.eye(self.state_dim, device=self.device) + F_dt + 0.5 * F_dt @ F_dt
 
         P_pred = F_d @ P @ F_d.T + self.Q
 
@@ -280,6 +286,7 @@ class EKFStateEstimator:
         )
         innovations = torch.zeros(num_times, self.obs_dim, device=self.device)
 
+        self._current_time = 0.0  # Reset time for new filter pass
         z_est = z0.clone()
         P = self.P0.clone()
 

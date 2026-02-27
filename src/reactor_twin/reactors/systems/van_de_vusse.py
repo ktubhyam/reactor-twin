@@ -21,8 +21,7 @@ from reactor_twin.reactors.kinetics.arrhenius import ArrheniusKinetics
 
 logger = logging.getLogger(__name__)
 
-# Gas constant (J/(mol*K))
-R_GAS = 8.314
+from reactor_twin.utils.constants import R_GAS
 
 
 def create_van_de_vusse_cstr(

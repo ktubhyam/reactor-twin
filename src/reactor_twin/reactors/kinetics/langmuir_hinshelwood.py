@@ -108,7 +108,7 @@ class LangmuirHinshelwoodKinetics(AbstractKinetics):
         # Rate constants (with temperature dependence if provided)
         if self.A is not None and self.E_a is not None:
             # k(T) = A * exp(-E_a/(R*T))
-            R_GAS = 8.314  # J/(mol*K)
+            from reactor_twin.utils.constants import R_GAS
             k_T = self.A * np.exp(-self.E_a / (R_GAS * temperature))
         else:
             k_T = self.k

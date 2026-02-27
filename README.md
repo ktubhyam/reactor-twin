@@ -13,10 +13,11 @@
 ReactorTwin is a framework for building **digital twins** of chemical reactors using **Neural Differential Equations** with **hard physics constraints**. It combines:
 
 - **5 Neural DE variants**: Standard, Latent, Augmented, SDE, CDE
-- **6 reactor types**: CSTR, Batch, Semi-batch, PFR, Multi-phase, Population Balance
-- **Hard conservation laws**: Mass, energy, thermodynamics (10-100x better than soft constraints)
-- **Port-Hamiltonian structure**: Thermodynamically consistent dynamics
-- **Digital twin features**: EKF state estimation, fault detection, MPC control
+- **4 reactor types**: CSTR, Batch, Semi-batch, PFR (plug flow with Method of Lines)
+- **7 hard conservation laws**: Mass, energy, thermodynamics, stoichiometry, port-Hamiltonian, GENERIC, positivity
+- **5 kinetics models**: Arrhenius, Michaelis-Menten, Power Law, Langmuir-Hinshelwood, Reversible
+- **Digital twin features**: EKF state estimation, 4-level fault detection, MPC control, online adaptation, meta-learning
+- **10-page Streamlit dashboard** for interactive simulation and analysis
 
 **Key differentiator:** Architectural projection onto constraint manifolds ensures physical laws are satisfied **exactly**, not approximately.
 
@@ -74,31 +75,61 @@ predictions = model(z0=torch.randn(32, 2), t_span=torch.linspace(0, 10, 50))
 | Variant | Use Case | Status |
 |---------|----------|--------|
 | **Neural ODE** | Standard continuous-time dynamics | ✅ Complete |
-| **Latent Neural ODE** | High-dimensional systems (encoder/decoder) | ⏳ Planned |
-| **Augmented Neural ODE** | Topology-breaking expressivity | ⏳ Planned |
-| **Neural SDE** | Uncertainty quantification (stochastic) | ⏳ Planned |
-| **Neural CDE** | Irregular sensor data | ⏳ Planned |
+| **Latent Neural ODE** | High-dimensional systems (encoder/decoder) | ✅ Complete |
+| **Augmented Neural ODE** | Topology-breaking expressivity | ✅ Complete |
+| **Neural SDE** | Uncertainty quantification (stochastic) | ✅ Complete |
+| **Neural CDE** | Irregular sensor data | ✅ Complete |
 
 ### Reactor Types
 
 | Reactor | Description | Status |
 |---------|-------------|--------|
 | **CSTR** | Continuous stirred-tank reactor | ✅ Complete |
-| **Batch** | Time-varying volume | ⏳ Planned |
-| **Semi-batch** | Continuous feed + batch | ⏳ Planned |
-| **PFR** | Plug flow (Method of Lines) | ⏳ Planned |
-| **Multi-phase** | Gas-liquid with mass transfer | ⏳ Planned |
-| **Population Balance** | Crystallization (nucleation/growth) | ⏳ Planned |
+| **Batch** | Time-varying volume for gas-phase reactions | ✅ Complete |
+| **Semi-batch** | Continuous feed + batch (pharmaceutical) | ✅ Complete |
+| **PFR** | Plug flow with Method of Lines discretization | ✅ Complete |
+
+### Kinetics Models
+
+| Model | Use Case | Status |
+|-------|----------|--------|
+| **Arrhenius** | Standard temperature-dependent reactions | ✅ Complete |
+| **Michaelis-Menten** | Enzyme-catalyzed reactions | ✅ Complete |
+| **Power Law** | Empirical rate expressions | ✅ Complete |
+| **Langmuir-Hinshelwood** | Heterogeneous catalysis | ✅ Complete |
+| **Reversible** | Equilibrium-limited reactions | ✅ Complete |
 
 ### Physics Constraints
 
 | Constraint | Hard Mode | Soft Mode | Status |
 |-----------|-----------|-----------|--------|
 | **Positivity** | Softplus/ReLU projection | Penalty | ✅ Complete |
-| **Mass Balance** | Stoichiometric projection | Penalty | ⏳ Planned |
-| **Energy Balance** | Computed from rates | Penalty | ⏳ Planned |
-| **Thermodynamics** | Gibbs monotonicity | Penalty | ⏳ Planned |
-| **Port-Hamiltonian** | Structure-preserving | N/A | ⏳ Planned |
+| **Mass Balance** | Stoichiometric projection | Penalty | ✅ Complete |
+| **Energy Balance** | Soft mode only | Penalty | ✅ Complete |
+| **Thermodynamics** | Entropy/Gibbs/equilibrium | Penalty | ✅ Complete |
+| **Stoichiometry** | Predict rates not species | Penalty | ✅ Complete |
+| **Port-Hamiltonian** | Structure-preserving | N/A | ✅ Complete |
+| **GENERIC** | Reversible-irreversible coupling | Penalty | ✅ Complete |
+
+### Digital Twin Features
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **State Estimation** | EKF with Neural ODE fusion, autograd Jacobians | ✅ Complete |
+| **Fault Detection** | 4-level: SPC, residual, isolation, ML classification | ✅ Complete |
+| **MPC Control** | Gradient-based with constraint handling | ✅ Complete |
+| **Online Adaptation** | Replay buffer + Elastic Weight Consolidation | ✅ Complete |
+| **Meta-Learning** | Reptile for cross-reactor transfer | ✅ Complete |
+
+### Benchmark Systems
+
+| System | Type | Status |
+|--------|------|--------|
+| **Exothermic A→B** | Non-isothermal CSTR | ✅ Complete |
+| **Van de Vusse** | Series-parallel CSTR | ✅ Complete |
+| **Bioreactor** | Monod growth kinetics | ✅ Complete |
+| **Consecutive A→B→C** | Selectivity optimization | ✅ Complete |
+| **Parallel A→B, A→C** | Yield optimization | ✅ Complete |
 
 ---
 
@@ -128,19 +159,31 @@ reactor = REACTOR_REGISTRY.get("my_reactor")(...)
 reactor-twin/
 ├── src/reactor_twin/
 │   ├── core/           # Neural DE Engine (Neural ODE, Latent, SDE, CDE)
-│   ├── physics/        # Hard/soft constraints
-│   ├── reactors/       # Reactor library + kinetics
-│   ├── training/       # Training engine + meta-learning
-│   ├── digital_twin/   # EKF, fault detection, MPC
-│   ├── dashboard/      # 10-page Streamlit app
-│   └── api/            # FastAPI + WebSocket serving
-├── tests/              # 30+ test files + property-based tests
-├── examples/           # 15 runnable examples
-├── notebooks/          # 5 tutorial notebooks
-└── configs/            # YAML configs for benchmarks
+│   ├── physics/        # 7 hard/soft constraints
+│   ├── reactors/       # 4 reactor types + 5 kinetics models + 5 benchmarks
+│   ├── training/       # Training engine + losses + data generation
+│   ├── digital_twin/   # EKF, fault detection, MPC, online adaptation, meta-learning
+│   └── dashboard/      # 10-page Streamlit app
+├── tests/              # Test suite
+├── examples/           # Runnable examples
+└── pyproject.toml      # Package configuration
 ```
 
 See [`PROJECT_STRUCTURE.md`](PROJECT_STRUCTURE.md) for complete architecture details.
+
+---
+
+## Dashboard
+
+Launch the interactive Streamlit dashboard:
+
+```bash
+pip install -e ".[dashboard]"
+reactor-twin-dashboard
+# Or: streamlit run src/reactor_twin/dashboard/app.py
+```
+
+**10 pages:** Reactor Simulator, Phase Portraits, Bifurcation Diagrams, RTD Analysis, Parameter Sweeps, Sensitivity Analysis, Pareto Optimization, Fault Monitoring, Model Validation, Latent Space Explorer.
 
 ---
 
@@ -158,15 +201,6 @@ See [`PROJECT_STRUCTURE.md`](PROJECT_STRUCTURE.md) for complete architecture det
 - Single trajectory: < 5 ms (**100x faster than scipy**)
 - Parameter sweep (10K conditions): < 5 s (**1000x faster**)
 - MPC optimization: < 100 ms (real-time capable)
-
----
-
-## Documentation
-
-- **[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)** - 2,560-line technical design document
-- **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** - Complete architecture breakdown
-- **Examples:** `examples/00_quickstart.py` (more coming soon)
-- **Tutorials:** Jupyter notebooks (coming soon)
 
 ---
 
@@ -190,9 +224,6 @@ pytest
 
 # With coverage
 pytest --cov=reactor_twin --cov-report=html
-
-# Property-based tests (hypothesis)
-pytest tests/test_integration/test_conservation_laws.py
 ```
 
 ### Linting & Formatting
@@ -212,11 +243,14 @@ mypy src/
 
 ## Roadmap
 
-**Phase 1** (Weeks 1-2): Core Neural ODE + 1 CSTR benchmark ✅
-**Phase 2** (Weeks 3-4): Physics constraints + 4 more CSTRs
-**Phase 3** (Weeks 5-6): Advanced DEs (Latent/Augmented/SDE)
-**Phase 4** (Weeks 7-8): PFR, multi-phase, PBE
-**Phase 5** (Weeks 9-10): Digital twin features + dashboard
+- **Phase 1** (Weeks 1-2): Core Neural ODE + CSTR benchmark ✅
+- **Phase 2** (Weeks 3-4): 7 physics constraints + training infrastructure ✅
+- **Phase 3** (Weeks 5-6): Advanced DEs (Latent/Augmented/SDE/CDE) ✅
+- **Phase 4** (Weeks 7-8): Batch, Semi-batch, PFR + 4 kinetics + 3 benchmarks ✅
+- **Phase 5** (Weeks 9-10): Digital twin features + 10-page dashboard ✅
+- **Phase 6** (Weeks 11-12): Tests, examples, docs, PyPI release
+
+See [ROADMAP.md](ROADMAP.md) for details.
 
 ---
 

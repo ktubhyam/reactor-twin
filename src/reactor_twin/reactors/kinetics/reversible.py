@@ -114,7 +114,7 @@ class ReversibleKinetics(AbstractKinetics):
         Returns:
             Net production rates for each species, shape (num_species,).
         """
-        R_GAS = 8.314  # J/(mol*K)
+        from reactor_twin.utils.constants import R_GAS
 
         # Forward rate constants (with temperature dependence if provided)
         if self.A_f is not None and self.E_a_f is not None:
@@ -206,7 +206,7 @@ class ReversibleKinetics(AbstractKinetics):
         Returns:
             K_eq values, shape (num_reactions,).
         """
-        R_GAS = 8.314
+        from reactor_twin.utils.constants import R_GAS
 
         if self.A_f is not None and self.E_a_f is not None and self.A_r is not None and self.E_a_r is not None:
             k_f_T = self.A_f * np.exp(-self.E_a_f / (R_GAS * temperature))

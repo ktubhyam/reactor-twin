@@ -142,8 +142,8 @@ class PlugFlowReactor(AbstractReactor):
                 # Inlet: use C_in for left boundary
                 dispersion = self.dispersion * (C[:, k + 1] - 2 * C_k + C_in) / self.dz**2
             elif k == self.num_cells - 1:
-                # Outlet: Neumann BC (dC/dz = 0), so C_k+1 = C_k
-                dispersion = self.dispersion * (C_k - 2 * C_k + C[:, k - 1]) / self.dz**2
+                # Outlet: Neumann BC (dC/dz = 0), ghost node C_k+1 = C_k
+                dispersion = self.dispersion * (C[:, k - 1] - C_k) / self.dz**2
             else:
                 dispersion = self.dispersion * (C[:, k + 1] - 2 * C_k + C[:, k - 1]) / self.dz**2
 
@@ -218,6 +218,7 @@ class PlugFlowReactor(AbstractReactor):
             name=config["name"],
             num_species=config["num_species"],
             params=config["params"],
+            kinetics=config.get("kinetics"),
             num_cells=config.get("num_cells", 50),
         )
 
