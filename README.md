@@ -31,15 +31,16 @@ ReactorTwin is a framework for building **digital twins** of chemical reactors u
 ### Installation
 
 ```bash
-# Clone repository
+# From PyPI
+pip install reactor-twin
+
+# With all optional dependencies
+pip install reactor-twin[all]
+
+# Or from source
 git clone https://github.com/ktubhyam/reactor-twin.git
 cd reactor-twin
-
-# Install with all dependencies
-pip install -e ".[all]"
-
-# Or minimal install
-pip install -e .
+pip install -e ".[dev]"
 ```
 
 ### 30-Second Example
@@ -164,7 +165,7 @@ reactor-twin/
 ├── src/reactor_twin/
 │   ├── core/           # Neural DE Engine (Neural ODE, Latent, SDE, CDE)
 │   ├── physics/        # 7 hard/soft constraints
-│   ├── reactors/       # 4 reactor types + 5 kinetics models + 5 benchmarks
+│   ├── reactors/       # 4 reactor types + 6 kinetics models + 5 benchmarks
 │   ├── training/       # Training engine + losses + data generation
 │   ├── digital_twin/   # EKF, fault detection, MPC, online adaptation, meta-learning
 │   └── dashboard/      # 10-page Streamlit app
@@ -173,7 +174,7 @@ reactor-twin/
 └── pyproject.toml      # Package configuration
 ```
 
-See [`PROJECT_STRUCTURE.md`](PROJECT_STRUCTURE.md) for complete architecture details.
+See the [documentation](https://ktubhyam.github.io/reactor-twin) for complete architecture details.
 
 ---
 
