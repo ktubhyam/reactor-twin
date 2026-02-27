@@ -8,11 +8,10 @@ from typing import Any
 import numpy as np
 
 from reactor_twin.reactors.kinetics.base import AbstractKinetics
+from reactor_twin.utils.constants import R_GAS
 from reactor_twin.utils.registry import KINETICS_REGISTRY
 
 logger = logging.getLogger(__name__)
-
-from reactor_twin.utils.constants import R_GAS
 
 
 @KINETICS_REGISTRY.register("arrhenius")
@@ -61,6 +60,30 @@ class ArrheniusKinetics(AbstractKinetics):
         assert self.stoich.shape[0] == num_reactions, "stoich shape mismatch"
         assert self.orders.shape == self.stoich.shape, "orders shape mismatch"
 
+    def compute_reaction_rates(
+        self,
+        concentrations: np.ndarray,
+        temperature: float,
+    ) -> np.ndarray:
+        """Compute per-reaction rates (before stoichiometric mapping).
+
+        Args:
+            concentrations: Species concentrations, shape (num_species,).
+            temperature: Temperature in Kelvin.
+
+        Returns:
+            Per-reaction rates, shape (num_reactions,).
+        """
+        k = self.k0 * np.exp(-self.Ea / (R_GAS * temperature))
+
+        reaction_rates = k.copy()
+        for j in range(self.num_reactions):
+            for i in range(len(concentrations)):
+                if self.orders[j, i] > 0:
+                    reaction_rates[j] *= concentrations[i] ** self.orders[j, i]
+
+        return reaction_rates
+
     def compute_rates(
         self,
         concentrations: np.ndarray,
@@ -75,15 +98,7 @@ class ArrheniusKinetics(AbstractKinetics):
         Returns:
             Net production rates for each species, shape (num_species,).
         """
-        # Compute rate constants: k = k0 * exp(-Ea/(R*T))
-        k = self.k0 * np.exp(-self.Ea / (R_GAS * temperature))
-
-        # Compute reaction rates: r_j = k_j * prod(C_i^order_ij)
-        reaction_rates = k.copy()
-        for j in range(self.num_reactions):
-            for i in range(len(concentrations)):
-                if self.orders[j, i] > 0:
-                    reaction_rates[j] *= concentrations[i] ** self.orders[j, i]
+        reaction_rates = self.compute_reaction_rates(concentrations, temperature)
 
         # Apply stoichiometry: net_rate_i = sum_j(nu_ij * r_j)
         net_rates = self.stoich.T @ reaction_rates  # (species,)

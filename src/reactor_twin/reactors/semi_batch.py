@@ -69,9 +69,7 @@ class SemiBatchReactor(AbstractReactor):
             required_thermo = ["rho", "Cp", "T_in"]
             for key in required_thermo:
                 if key not in params:
-                    raise ValueError(
-                        f"Non-isothermal semi-batch reactor requires parameter: {key}"
-                    )
+                    raise ValueError(f"Non-isothermal semi-batch reactor requires parameter: {key}")
 
     def _compute_state_dim(self) -> int:
         """Compute state dimension.
@@ -149,8 +147,14 @@ class SemiBatchReactor(AbstractReactor):
             rho = self.params["rho"]
             Cp = self.params["Cp"]
 
-            # Heat of reaction term (placeholder - needs ΔH_rxn)
-            heat_of_reaction = 0.0  # TODO: Compute from kinetics and ΔH
+            # Heat of reaction: Q_rxn = sum(dH_j * r_j) where r_j are per-reaction rates
+            dH_rxn = self.params.get("dH_rxn")
+            if dH_rxn is not None and self.kinetics is not None:
+                dH_rxn_arr = np.array(dH_rxn)
+                rxn_rates = self.kinetics.compute_reaction_rates(C, T)
+                heat_of_reaction = np.dot(dH_rxn_arr, rxn_rates) * V  # J/min
+            else:
+                heat_of_reaction = 0.0
 
             # Feed enthalpy change: F_in * rho * Cp * (T_in - T) / (rho * Cp * V)
             # Simplifies to: F_in * (T_in - T) / V

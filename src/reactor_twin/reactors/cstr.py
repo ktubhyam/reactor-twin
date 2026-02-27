@@ -70,9 +70,7 @@ class CSTRReactor(AbstractReactor):
             required_thermo = ["rho", "Cp", "UA", "T_coolant"]
             for key in required_thermo:
                 if key not in params:
-                    raise ValueError(
-                        f"Non-isothermal CSTR requires parameter: {key}"
-                    )
+                    raise ValueError(f"Non-isothermal CSTR requires parameter: {key}")
 
     def _compute_state_dim(self) -> int:
         """Compute state dimension.
@@ -103,7 +101,7 @@ class CSTRReactor(AbstractReactor):
             Time derivative dy/dt.
         """
         # Extract states
-        C = y[:self.num_species]  # Concentrations
+        C = y[: self.num_species]  # Concentrations
         T = y[self.num_species] if not self.isothermal else self.params["T_feed"]
 
         # Extract parameters
@@ -130,8 +128,14 @@ class CSTRReactor(AbstractReactor):
         UA = self.params["UA"]
         T_coolant = self.params["T_coolant"]
 
-        # TODO: Compute heat of reaction term from kinetics
-        heat_of_reaction = 0.0  # Placeholder
+        # Heat of reaction: Q_rxn = sum(dH_j * r_j) where r_j are per-reaction rates
+        dH_rxn = self.params.get("dH_rxn")
+        if dH_rxn is not None and self.kinetics is not None:
+            dH_rxn = np.array(dH_rxn)
+            rxn_rates = self.kinetics.compute_reaction_rates(C, T)
+            heat_of_reaction = np.dot(dH_rxn, rxn_rates) * V  # J/min
+        else:
+            heat_of_reaction = 0.0
 
         dT_dt = (
             (F / V) * (T_feed - T)

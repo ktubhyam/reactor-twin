@@ -70,9 +70,7 @@ class BatchReactor(AbstractReactor):
             required_thermo = ["rho", "Cp"]
             for key in required_thermo:
                 if key not in params:
-                    raise ValueError(
-                        f"Non-isothermal batch reactor requires parameter: {key}"
-                    )
+                    raise ValueError(f"Non-isothermal batch reactor requires parameter: {key}")
 
     def _compute_state_dim(self) -> int:
         """Compute state dimension.
@@ -111,7 +109,7 @@ class BatchReactor(AbstractReactor):
         """
         # Extract states
         idx = 0
-        C = y[idx:idx + self.num_species]
+        C = y[idx : idx + self.num_species]
         idx += self.num_species
 
         if not self.constant_volume:
@@ -150,8 +148,14 @@ class BatchReactor(AbstractReactor):
             Cp = self.params["Cp"]
             Q_ext = u[0] if u is not None else 0.0  # External heating (W)
 
-            # Heat of reaction term (placeholder - needs ΔH_rxn)
-            heat_of_reaction = 0.0  # TODO: Compute from kinetics and ΔH
+            # Heat of reaction: Q_rxn = sum(dH_j * r_j) where r_j are per-reaction rates
+            dH_rxn = self.params.get("dH_rxn")
+            if dH_rxn is not None and self.kinetics is not None:
+                dH_rxn_arr = np.array(dH_rxn)
+                rxn_rates = self.kinetics.compute_reaction_rates(C, T)
+                heat_of_reaction = np.dot(dH_rxn_arr, rxn_rates) * V  # J/min
+            else:
+                heat_of_reaction = 0.0
 
             dT_dt = heat_of_reaction / (rho * Cp) + Q_ext / (rho * Cp * V)
         else:

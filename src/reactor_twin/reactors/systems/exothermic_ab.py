@@ -71,12 +71,15 @@ def create_exothermic_cstr(
 
     if not isothermal:
         # Add thermal parameters
-        reactor_params.update({
-            "rho": 1000.0,  # g/L
-            "Cp": 0.239,  # J/(g*K)
-            "UA": 5e4,  # J/(min*K)
-            "T_coolant": 300.0,  # K
-        })
+        reactor_params.update(
+            {
+                "rho": 1000.0,  # g/L
+                "Cp": 0.239,  # J/(g*K)
+                "UA": 5e4,  # J/(min*K)
+                "T_coolant": 300.0,  # K
+                "dH_rxn": [-5e4],  # J/mol (exothermic)
+            }
+        )
 
     reactor = CSTRReactor(
         name=name,

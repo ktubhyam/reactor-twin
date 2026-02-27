@@ -35,8 +35,7 @@ class AbstractKinetics(ABC):
         self.num_reactions = num_reactions
         self.params = params
         logger.debug(
-            f"Initialized {self.__class__.__name__}: "
-            f"name={name}, reactions={num_reactions}"
+            f"Initialized {self.__class__.__name__}: name={name}, reactions={num_reactions}"
         )
 
     @abstractmethod
@@ -55,6 +54,27 @@ class AbstractKinetics(ABC):
             Reaction rates, shape (num_reactions,).
         """
         raise NotImplementedError("Subclasses must implement compute_rates()")
+
+    def compute_reaction_rates(
+        self,
+        concentrations: np.ndarray,
+        temperature: float,
+    ) -> np.ndarray:
+        """Compute individual reaction rates (before stoichiometric mapping).
+
+        Override in subclasses that distinguish between per-reaction rates
+        and net species production rates. The default returns the same as
+        ``compute_rates`` which is correct when ``compute_rates`` already
+        returns per-reaction rates.
+
+        Args:
+            concentrations: Species concentrations, shape (num_species,).
+            temperature: Temperature in Kelvin.
+
+        Returns:
+            Per-reaction rates, shape (num_reactions,).
+        """
+        return self.compute_rates(concentrations, temperature)
 
     def validate_parameters(self) -> bool:
         """Validate kinetic parameters are physically reasonable.
@@ -93,11 +113,7 @@ class AbstractKinetics(ABC):
 
     def __repr__(self) -> str:
         """String representation."""
-        return (
-            f"{self.__class__.__name__}("
-            f"name='{self.name}', "
-            f"reactions={self.num_reactions})"
-        )
+        return f"{self.__class__.__name__}(name='{self.name}', reactions={self.num_reactions})"
 
 
 __all__ = ["AbstractKinetics"]
