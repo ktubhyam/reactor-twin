@@ -100,8 +100,8 @@ class MichaelisMentenKinetics(AbstractKinetics):
             # Apply competitive inhibition if present
             if self.inhibitor_indices is not None and self.K_i[j] > 0:
                 I_idx = self.inhibitor_indices[j]
-                I = concentrations[I_idx]
-                inhibition_factor = 1 + I / self.K_i[j]
+                inhibitor_conc = concentrations[I_idx]
+                inhibition_factor = 1 + inhibitor_conc / self.K_i[j]
                 rate = rate / inhibition_factor
 
             reaction_rates[j] = rate
@@ -128,10 +128,9 @@ class MichaelisMentenKinetics(AbstractKinetics):
             return False
 
         # Check K_i > 0 (if present)
-        if self.inhibitor_indices is not None:
-            if not np.all(self.K_i > 0):
-                logger.error("K_i must be positive")
-                return False
+        if self.inhibitor_indices is not None and not np.all(self.K_i > 0):
+            logger.error("K_i must be positive")
+            return False
 
         return True
 

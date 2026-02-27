@@ -51,10 +51,7 @@ class EnergyBalanceConstraint(AbstractConstraint):
         self.heats_of_reaction = heats_of_reaction
         self.stoich_matrix = stoich_matrix
 
-        logger.debug(
-            f"Initialized EnergyBalanceConstraint: "
-            f"mode={mode}, Cp={heat_capacity}"
-        )
+        logger.debug(f"Initialized EnergyBalanceConstraint: mode={mode}, Cp={heat_capacity}")
 
     def project(self, z: torch.Tensor) -> torch.Tensor:
         """Compute temperature from energy balance (hard mode).

@@ -120,7 +120,7 @@ class AugmentedNeuralODE(AbstractNeuralDE):
         Returns:
             Physical state, shape (batch, state_dim) or (batch, time, state_dim).
         """
-        return z_full[..., :self.state_dim]
+        return z_full[..., : self.state_dim]
 
     def forward(
         self,

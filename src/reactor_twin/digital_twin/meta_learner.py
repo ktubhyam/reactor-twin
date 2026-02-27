@@ -13,10 +13,9 @@ from __future__ import annotations
 
 import copy
 import logging
-from typing import Any, Callable
+from typing import Any
 
 import torch
-import torch.nn as nn
 
 from reactor_twin.core.base import AbstractNeuralDE
 from reactor_twin.training.data_generator import ReactorDataGenerator
@@ -66,8 +65,7 @@ class ReptileMetaLearner:
         self.device = torch.device(device)
 
         logger.info(
-            f"ReptileMetaLearner: meta_lr={meta_lr}, inner_lr={inner_lr}, "
-            f"inner_steps={inner_steps}"
+            f"ReptileMetaLearner: meta_lr={meta_lr}, inner_lr={inner_lr}, inner_steps={inner_steps}"
         )
 
     # ------------------------------------------------------------------
@@ -109,10 +107,7 @@ class ReptileMetaLearner:
             model_copy.train_step(batch, inner_opt)
 
         # Collect adapted parameters
-        adapted_params = {
-            n: p.detach().clone()
-            for n, p in model_copy.named_parameters()
-        }
+        adapted_params = {n: p.detach().clone() for n, p in model_copy.named_parameters()}
         return adapted_params
 
     # ------------------------------------------------------------------
@@ -204,16 +199,16 @@ class ReptileMetaLearner:
 
         for step in range(num_steps):
             disp = self.meta_step(
-                task_generators, t_span, t_eval,
+                task_generators,
+                t_span,
+                t_eval,
                 tasks_per_step=tasks_per_step,
                 batch_size=batch_size,
             )
             displacements.append(disp)
 
             if (step + 1) % log_interval == 0:
-                logger.info(
-                    f"Meta-step {step + 1}/{num_steps}: displacement={disp:.6f}"
-                )
+                logger.info(f"Meta-step {step + 1}/{num_steps}: displacement={disp:.6f}")
 
         logger.info(f"Meta-training complete: {num_steps} steps.")
         return displacements
@@ -258,16 +253,13 @@ class ReptileMetaLearner:
         self.model.train()
         losses: list[float] = []
 
-        for step in range(num_steps):
+        for _step in range(num_steps):
             batch = task_generator.generate_batch(batch_size, t_span, t_eval)
             batch = {k: v.to(self.device) for k, v in batch.items()}
             step_losses = self.model.train_step(batch, optimizer)
             losses.append(step_losses["total"])
 
-        logger.info(
-            f"Fine-tuning complete: {num_steps} steps, "
-            f"final loss={losses[-1]:.6f}"
-        )
+        logger.info(f"Fine-tuning complete: {num_steps} steps, final loss={losses[-1]:.6f}")
         return losses
 
 

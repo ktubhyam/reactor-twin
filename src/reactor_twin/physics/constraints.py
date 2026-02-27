@@ -6,7 +6,7 @@ import logging
 from abc import ABC, abstractmethod
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +38,7 @@ class AbstractConstraint(nn.Module, ABC):
         self.name = name
         self.mode = mode
         self.weight = weight
-        logger.debug(
-            f"Initialized {self.__class__.__name__}: "
-            f"mode={mode}, weight={weight}"
-        )
+        logger.debug(f"Initialized {self.__class__.__name__}: mode={mode}, weight={weight}")
 
     @abstractmethod
     def project(self, z: torch.Tensor) -> torch.Tensor:

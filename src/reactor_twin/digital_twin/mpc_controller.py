@@ -9,11 +9,10 @@ performance.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import torch
-import torch.nn as nn
 
 from reactor_twin.core.base import AbstractNeuralDE
 
@@ -23,6 +22,7 @@ logger = logging.getLogger(__name__)
 # ======================================================================
 # Objective function
 # ======================================================================
+
 
 @dataclass
 class MPCObjective:
@@ -108,6 +108,7 @@ class MPCObjective:
 # Control constraints
 # ======================================================================
 
+
 @dataclass
 class ControlConstraints:
     """Box constraints on control inputs with optional soft output penalties.
@@ -149,16 +150,17 @@ class ControlConstraints:
         penalty = torch.tensor(0.0, device=y.device)
         if self.y_min is not None:
             violation = torch.relu(self.y_min - y)
-            penalty = penalty + self.penalty_weight * (violation ** 2).sum()
+            penalty = penalty + self.penalty_weight * (violation**2).sum()
         if self.y_max is not None:
             violation = torch.relu(y - self.y_max)
-            penalty = penalty + self.penalty_weight * (violation ** 2).sum()
+            penalty = penalty + self.penalty_weight * (violation**2).sum()
         return penalty
 
 
 # ======================================================================
 # MPC Controller
 # ======================================================================
+
 
 class MPCController:
     """Receding-horizon MPC using a Neural ODE plant model.
@@ -298,9 +300,7 @@ class MPCController:
             u_seq = torch.cat([self._u_prev[1:], self._u_prev[-1:]], dim=0)
             u_seq = u_seq.detach().requires_grad_(True)
         else:
-            u_seq = torch.zeros(
-                self.horizon, input_dim, device=self.device, requires_grad=True
-            )
+            u_seq = torch.zeros(self.horizon, input_dim, device=self.device, requires_grad=True)
 
         optimizer = torch.optim.LBFGS(
             [u_seq],

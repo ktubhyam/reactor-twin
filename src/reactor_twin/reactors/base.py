@@ -7,7 +7,6 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import numpy as np
-import torch
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +108,7 @@ class AbstractReactor(ABC):
             True if state is physically valid, False otherwise.
         """
         # Default: Check non-negativity for concentrations
-        concentrations = y[:self.num_species]
+        concentrations = y[: self.num_species]
         return bool(np.all(concentrations >= 0))
 
     def to_dict(self) -> dict[str, Any]:

@@ -16,6 +16,7 @@ st.title("Bifurcation Diagram")
 def _safe_import_plotly():
     try:
         import plotly.graph_objects as go
+
         return go
     except ImportError:
         return None
@@ -39,8 +40,8 @@ output_var = st.sidebar.number_input("Output variable index", 0, 5, 0)
 # ── run ──────────────────────────────────────────────────────────────
 
 if st.sidebar.button("Compute Bifurcation", type="primary"):
-    from reactor_twin.training.data_generator import ReactorDataGenerator
     from reactor_twin.reactors.systems import create_exothermic_cstr
+    from reactor_twin.training.data_generator import ReactorDataGenerator
 
     progress = st.progress(0, text="Sweeping parameter...")
 
@@ -62,7 +63,7 @@ if st.sidebar.button("Compute Bifurcation", type="primary"):
         steady_states.append(ss)
 
         pct = int(100 * (idx + 1) / num_sweep)
-        progress.progress(pct, text=f"Point {idx+1}/{num_sweep}")
+        progress.progress(pct, text=f"Point {idx + 1}/{num_sweep}")
 
     progress.progress(100, text="Done!")
     steady_states = np.array(steady_states)
@@ -73,11 +74,15 @@ if st.sidebar.button("Compute Bifurcation", type="primary"):
     st.subheader("Steady-State Bifurcation Diagram")
     if go is not None:
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=param_values, y=steady_states,
-            mode="markers+lines", name=labels[output_var],
-            marker=dict(size=5),
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=param_values,
+                y=steady_states,
+                mode="markers+lines",
+                name=labels[output_var],
+                marker=dict(size=5),
+            )
+        )
         fig.update_layout(
             xaxis_title=param_name,
             yaxis_title=f"Steady-state {labels[output_var]}",
@@ -85,6 +90,7 @@ if st.sidebar.button("Compute Bifurcation", type="primary"):
         st.plotly_chart(fig, use_container_width=True)
     else:
         import matplotlib.pyplot as plt
+
         fig, ax = plt.subplots()
         ax.plot(param_values, steady_states, "o-", markersize=3)
         ax.set_xlabel(param_name)
@@ -94,6 +100,7 @@ if st.sidebar.button("Compute Bifurcation", type="primary"):
     # Show raw data
     with st.expander("Raw data"):
         import pandas as pd
+
         df = pd.DataFrame({param_name: param_values, f"SS {labels[output_var]}": steady_states})
         st.dataframe(df, use_container_width=True)
 

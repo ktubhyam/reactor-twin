@@ -15,8 +15,7 @@ try:
     from fastapi.middleware.cors import CORSMiddleware
 except ImportError as exc:
     raise ImportError(
-        "FastAPI is required for the API server. "
-        "Install with: pip install reactor-twin[api]"
+        "FastAPI is required for the API server. Install with: pip install reactor-twin[api]"
     ) from exc
 
 import numpy as np

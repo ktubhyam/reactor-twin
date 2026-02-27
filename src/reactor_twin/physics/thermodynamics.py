@@ -7,11 +7,10 @@ import logging
 import torch
 
 from reactor_twin.physics.constraints import AbstractConstraint
+from reactor_twin.utils.constants import R_GAS
 from reactor_twin.utils.registry import CONSTRAINT_REGISTRY
 
 logger = logging.getLogger(__name__)
-
-from reactor_twin.utils.constants import R_GAS
 
 
 @CONSTRAINT_REGISTRY.register("thermodynamics")
@@ -72,9 +71,7 @@ class ThermodynamicConstraint(AbstractConstraint):
 
     def project(self, z: torch.Tensor) -> torch.Tensor:
         """Not applicable for thermodynamic constraints."""
-        raise NotImplementedError(
-            "Hard thermodynamic constraints not supported. Use soft mode."
-        )
+        raise NotImplementedError("Hard thermodynamic constraints not supported. Use soft mode.")
 
     def compute_violation(self, z: torch.Tensor) -> torch.Tensor:
         """Compute thermodynamic violation penalty (soft mode).

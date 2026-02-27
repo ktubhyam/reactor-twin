@@ -18,7 +18,6 @@ from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 
 from reactor_twin.core.base import AbstractNeuralDE
 
@@ -29,8 +28,10 @@ logger = logging.getLogger(__name__)
 # Alarm severity
 # ======================================================================
 
+
 class AlarmLevel(Enum):
     """Severity levels for fault alarms."""
+
     NORMAL = auto()
     WARNING = auto()
     ALARM = auto()
@@ -40,6 +41,7 @@ class AlarmLevel(Enum):
 @dataclass
 class Alarm:
     """Single alarm event."""
+
     level: AlarmLevel
     source: str
     message: str
@@ -50,6 +52,7 @@ class Alarm:
 # ======================================================================
 # Level 1: Statistical Process Control
 # ======================================================================
+
 
 class SPCChart:
     """EWMA and CUSUM control charts on raw sensor signals.
@@ -148,6 +151,7 @@ class SPCChart:
 # Level 2: Residual-based Detection
 # ======================================================================
 
+
 class ResidualDetector:
     """One-step-ahead prediction error monitoring.
 
@@ -244,6 +248,7 @@ class ResidualDetector:
 # Level 3: Fault Isolation
 # ======================================================================
 
+
 class FaultIsolator:
     """Per-variable contribution analysis for fault isolation.
 
@@ -265,9 +270,9 @@ class FaultIsolator:
         Args:
             residuals: Residual data, shape ``(num_samples, state_dim)``.
         """
-        self.baseline_residual_cov = np.cov(residuals, rowvar=False) + np.eye(
-            self.state_dim
-        ) * 1e-10
+        self.baseline_residual_cov = (
+            np.cov(residuals, rowvar=False) + np.eye(self.state_dim) * 1e-10
+        )
 
     def isolate(self, residual: np.ndarray) -> dict[str, Any]:
         """Compute per-variable contribution to squared prediction error.
@@ -302,6 +307,7 @@ class FaultIsolator:
 # ======================================================================
 # Level 4: Fault Classification
 # ======================================================================
+
 
 class FaultClassifier:
     """Machine-learning fault classification on residual features.
@@ -340,9 +346,11 @@ class FaultClassifier:
         try:
             if self.method == "svm":
                 from sklearn.svm import SVC
+
                 self.classifier = SVC(probability=True, **self._kwargs)
             else:
                 from sklearn.ensemble import RandomForestClassifier
+
                 self.classifier = RandomForestClassifier(**self._kwargs)
         except ImportError as exc:
             raise ImportError(
@@ -373,7 +381,7 @@ class FaultClassifier:
 
         label = self.classifier.predict(features)[0]
         probs = self.classifier.predict_proba(features)[0]
-        prob_dict = dict(zip(self.classes, probs.tolist()))
+        prob_dict = dict(zip(self.classes, probs.tolist(), strict=False))
 
         return {"label": label, "probabilities": prob_dict}
 
@@ -381,6 +389,7 @@ class FaultClassifier:
 # ======================================================================
 # Unified Fault Detector
 # ======================================================================
+
 
 class FaultDetector:
     """Unified multi-level fault detection orchestrator.
@@ -410,7 +419,10 @@ class FaultDetector:
 
         self.spc = SPCChart(num_vars=obs_dim)
         self.residual_detector = ResidualDetector(
-            model=model, state_dim=state_dim, dt=dt, device=device,
+            model=model,
+            state_dim=state_dim,
+            dt=dt,
+            device=device,
         )
         self.isolator = FaultIsolator(state_dim=state_dim)
         self.classifier = FaultClassifier()
@@ -473,25 +485,32 @@ class FaultDetector:
             l1 = self.spc.update(observation)
             result["L1"] = l1
             if np.any(l1["ewma_alarm"]) or np.any(l1["cusum_alarm"]):
-                alarms.append(Alarm(
-                    level=AlarmLevel.WARNING,
-                    source="L1_SPC",
-                    message="SPC control limit exceeded",
-                    timestamp=t,
-                    details={"ewma": l1["ewma_alarm"].tolist(), "cusum": l1["cusum_alarm"].tolist()},
-                ))
+                alarms.append(
+                    Alarm(
+                        level=AlarmLevel.WARNING,
+                        source="L1_SPC",
+                        message="SPC control limit exceeded",
+                        timestamp=t,
+                        details={
+                            "ewma": l1["ewma_alarm"].tolist(),
+                            "cusum": l1["cusum_alarm"].tolist(),
+                        },
+                    )
+                )
 
         # L2: Residual detection
         l2 = self.residual_detector.update(z_current, z_next_measured)
         result["L2"] = l2
         if np.any(l2["alarm"]):
-            alarms.append(Alarm(
-                level=AlarmLevel.ALARM,
-                source="L2_Residual",
-                message="Prediction residual exceeds threshold",
-                timestamp=t,
-                details={"z_score": l2["z_score"].tolist()},
-            ))
+            alarms.append(
+                Alarm(
+                    level=AlarmLevel.ALARM,
+                    source="L2_Residual",
+                    message="Prediction residual exceeds threshold",
+                    timestamp=t,
+                    details={"z_score": l2["z_score"].tolist()},
+                )
+            )
 
         # L3: Fault isolation (only if L2 alarmed)
         if np.any(l2["alarm"]):
@@ -504,13 +523,15 @@ class FaultDetector:
             l4 = self.classifier.predict(features)
             result["L4"] = l4
             if l4["label"] != "normal":
-                alarms.append(Alarm(
-                    level=AlarmLevel.CRITICAL,
-                    source="L4_Classifier",
-                    message=f"Fault classified: {l4['label']}",
-                    timestamp=t,
-                    details=l4,
-                ))
+                alarms.append(
+                    Alarm(
+                        level=AlarmLevel.CRITICAL,
+                        source="L4_Classifier",
+                        message=f"Fault classified: {l4['label']}",
+                        timestamp=t,
+                        details=l4,
+                    )
+                )
 
         return result
 

@@ -8,7 +8,8 @@ modifying library source code.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +51,14 @@ class Registry:
             ... class CSTRReactor(AbstractReactor):
             ...     pass
         """
+
         def decorator(cls: type[T]) -> type[T]:
             if key in self._registry:
-                logger.warning(
-                    f"Overwriting existing {self.name} registry entry: {key}"
-                )
+                logger.warning(f"Overwriting existing {self.name} registry entry: {key}")
             self._registry[key] = cls
             logger.debug(f"Registered {self.name}: {key} -> {cls.__name__}")
             return cls
+
         return decorator
 
     def get(self, key: str) -> type[Any]:
@@ -74,10 +75,7 @@ class Registry:
         """
         if key not in self._registry:
             available = ", ".join(self._registry.keys())
-            raise KeyError(
-                f"'{key}' not found in {self.name} registry. "
-                f"Available: {available}"
-            )
+            raise KeyError(f"'{key}' not found in {self.name} registry. Available: {available}")
         return self._registry[key]
 
     def list_keys(self) -> list[str]:

@@ -16,7 +16,7 @@ import logging
 from typing import Any
 
 import torch
-import torch.nn as nn
+from torch import nn
 from torchdiffeq import odeint, odeint_adjoint
 
 from reactor_twin.core.base import AbstractNeuralDE

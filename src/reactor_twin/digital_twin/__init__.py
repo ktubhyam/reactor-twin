@@ -11,12 +11,12 @@ from reactor_twin.digital_twin.fault_detector import (
     ResidualDetector,
     SPCChart,
 )
+from reactor_twin.digital_twin.meta_learner import ReptileMetaLearner
 from reactor_twin.digital_twin.mpc_controller import (
     ControlConstraints,
     MPCController,
     MPCObjective,
 )
-from reactor_twin.digital_twin.meta_learner import ReptileMetaLearner
 from reactor_twin.digital_twin.online_adapter import (
     ElasticWeightConsolidation,
     OnlineAdapter,

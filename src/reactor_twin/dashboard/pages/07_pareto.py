@@ -17,6 +17,7 @@ st.title("Pareto Front Analysis")
 def _safe_import_plotly():
     try:
         import plotly.graph_objects as go
+
         return go
     except ImportError:
         return None
@@ -44,8 +45,8 @@ t_settle = st.sidebar.slider("Settling time", 5.0, 100.0, 30.0)
 # ── run ──────────────────────────────────────────────────────────────
 
 if st.sidebar.button("Compute Pareto Front", type="primary"):
-    from reactor_twin.training.data_generator import ReactorDataGenerator
     from reactor_twin.reactors.systems import create_exothermic_cstr
+    from reactor_twin.training.data_generator import ReactorDataGenerator
 
     vals = np.linspace(sp_min, sp_max, sp_n)
     obj1_results = []
@@ -97,28 +98,38 @@ if st.sidebar.button("Compute Pareto Front", type="primary"):
     if go is not None:
         fig = go.Figure()
         # All points
-        fig.add_trace(go.Scatter(
-            x=obj1_arr, y=obj2_arr, mode="markers",
-            name="Operating points",
-            marker=dict(size=6, color=vals_valid, colorscale="Viridis",
-                        colorbar=dict(title=sweep_param)),
-            text=[f"{sweep_param}={v:.1f}" for v in vals_valid],
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=obj1_arr,
+                y=obj2_arr,
+                mode="markers",
+                name="Operating points",
+                marker=dict(
+                    size=6, color=vals_valid, colorscale="Viridis", colorbar=dict(title=sweep_param)
+                ),
+                text=[f"{sweep_param}={v:.1f}" for v in vals_valid],
+            )
+        )
         # Pareto front
         if pareto_mask.any():
             pareto_idx = np.where(pareto_mask)[0]
             sort_idx = np.argsort(obj1_arr[pareto_idx])
             pareto_idx = pareto_idx[sort_idx]
-            fig.add_trace(go.Scatter(
-                x=obj1_arr[pareto_idx], y=obj2_arr[pareto_idx],
-                mode="lines+markers", name="Pareto front",
-                line=dict(color="red", width=2),
-                marker=dict(size=10, symbol="star"),
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=obj1_arr[pareto_idx],
+                    y=obj2_arr[pareto_idx],
+                    mode="lines+markers",
+                    name="Pareto front",
+                    line=dict(color="red", width=2),
+                    marker=dict(size=10, symbol="star"),
+                )
+            )
         fig.update_layout(xaxis_title=obj1_name, yaxis_title=obj2_name)
         st.plotly_chart(fig, use_container_width=True)
     else:
         import matplotlib.pyplot as plt
+
         fig, ax = plt.subplots()
         sc = ax.scatter(obj1_arr, obj2_arr, c=vals_valid, cmap="viridis", s=20)
         plt.colorbar(sc, ax=ax, label=sweep_param)
@@ -135,12 +146,15 @@ if st.sidebar.button("Compute Pareto Front", type="primary"):
     if pareto_mask.any():
         st.subheader("Pareto-Optimal Points")
         import pandas as pd
+
         pidx = np.where(pareto_mask)[0]
-        df = pd.DataFrame({
-            sweep_param: vals_valid[pidx],
-            obj1_name: obj1_arr[pidx],
-            obj2_name: obj2_arr[pidx],
-        })
+        df = pd.DataFrame(
+            {
+                sweep_param: vals_valid[pidx],
+                obj1_name: obj1_arr[pidx],
+                obj2_name: obj2_arr[pidx],
+            }
+        )
         st.dataframe(df, use_container_width=True)
 
     col1, col2 = st.columns(2)

@@ -15,12 +15,14 @@ st.title("Reactor Simulation")
 
 # ── helpers ──────────────────────────────────────────────────────────
 
+
 def _get_reactor_factories() -> dict:
     """Return available benchmark reactor factory functions."""
     from reactor_twin.reactors.systems import (
         create_exothermic_cstr,
         create_van_de_vusse_cstr,
     )
+
     return {
         "Exothermic A->B CSTR": create_exothermic_cstr,
         "Van de Vusse CSTR": create_van_de_vusse_cstr,
@@ -30,6 +32,7 @@ def _get_reactor_factories() -> dict:
 def _safe_import_plotly():
     try:
         import plotly.graph_objects as go
+
         return go
     except ImportError:
         return None
@@ -94,6 +97,7 @@ if st.sidebar.button("Run Simulation", type="primary"):
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 import matplotlib.pyplot as plt
+
                 fig, ax = plt.subplots()
                 for i in range(reactor.num_species):
                     ax.plot(t, y[:, i], label=labels[i])
@@ -108,11 +112,14 @@ if st.sidebar.button("Run Simulation", type="primary"):
                 temp_idx = reactor.num_species
                 if go is not None:
                     fig2 = go.Figure()
-                    fig2.add_trace(go.Scatter(x=t, y=y[:, temp_idx], mode="lines", name=labels[temp_idx]))
+                    fig2.add_trace(
+                        go.Scatter(x=t, y=y[:, temp_idx], mode="lines", name=labels[temp_idx])
+                    )
                     fig2.update_layout(xaxis_title="Time", yaxis_title="Temperature (K)")
                     st.plotly_chart(fig2, use_container_width=True)
                 else:
                     import matplotlib.pyplot as plt
+
                     fig2, ax2 = plt.subplots()
                     ax2.plot(t, y[:, temp_idx], label=labels[temp_idx])
                     ax2.set_xlabel("Time")
@@ -123,6 +130,7 @@ if st.sidebar.button("Run Simulation", type="primary"):
         # Raw data
         with st.expander("Raw data"):
             import pandas as pd
+
             df = pd.DataFrame(y, columns=labels)
             df.insert(0, "time", t)
             st.dataframe(df, use_container_width=True)

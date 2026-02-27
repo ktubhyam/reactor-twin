@@ -7,8 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
-import torch.nn as nn
-import torch.optim as optim
+from torch import optim
 
 from reactor_twin.core.base import AbstractNeuralDE
 from reactor_twin.training.data_generator import ReactorDataGenerator
@@ -80,11 +79,7 @@ class Trainer:
             "val_loss": [],
         }
 
-        logger.info(
-            f"Initialized Trainer: "
-            f"model={model.__class__.__name__}, "
-            f"device={self.device}"
-        )
+        logger.info(f"Initialized Trainer: model={model.__class__.__name__}, device={self.device}")
 
     def train_epoch(
         self,
@@ -135,17 +130,14 @@ class Trainer:
             # Log progress
             if (batch_idx + 1) % log_interval == 0:
                 logger.info(
-                    f"Epoch {self.epoch} [{batch_idx+1}/{len(train_data)}] "
+                    f"Epoch {self.epoch} [{batch_idx + 1}/{len(train_data)}] "
                     f"Loss: {losses['total'].item():.6f}"
                 )
 
             self.global_step += 1
 
         # Compute average losses
-        avg_losses = {
-            name: sum(values) / len(values)
-            for name, values in epoch_losses.items()
-        }
+        avg_losses = {name: sum(values) / len(values) for name, values in epoch_losses.items()}
 
         return avg_losses
 
@@ -190,10 +182,7 @@ class Trainer:
                     val_losses[loss_name].append(loss_value.item())
 
         # Compute average losses
-        avg_losses = {
-            name: sum(values) / len(values)
-            for name, values in val_losses.items()
-        }
+        avg_losses = {name: sum(values) / len(values) for name, values in val_losses.items()}
 
         return avg_losses
 
@@ -249,18 +238,14 @@ class Trainer:
             train_losses = self.train_epoch(train_data, log_interval)
             self.history["train_loss"].append(train_losses["total"])
 
-            logger.info(
-                f"Epoch {epoch}/{num_epochs} - Train Loss: {train_losses['total']:.6f}"
-            )
+            logger.info(f"Epoch {epoch}/{num_epochs} - Train Loss: {train_losses['total']:.6f}")
 
             # Validate
             if (epoch + 1) % val_interval == 0:
                 val_losses = self.validate(val_data)
                 self.history["val_loss"].append(val_losses["total"])
 
-                logger.info(
-                    f"Epoch {epoch}/{num_epochs} - Val Loss: {val_losses['total']:.6f}"
-                )
+                logger.info(f"Epoch {epoch}/{num_epochs} - Val Loss: {val_losses['total']:.6f}")
 
                 # Save best model
                 if val_losses["total"] < self.best_val_loss:

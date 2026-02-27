@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from reactor_twin.physics.constraints import AbstractConstraint
 from reactor_twin.utils.registry import CONSTRAINT_REGISTRY

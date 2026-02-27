@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import logging
 
-import numpy as np
-
 from reactor_twin.reactors.cstr import CSTRReactor
 from reactor_twin.reactors.kinetics.monod import MonodKinetics
 

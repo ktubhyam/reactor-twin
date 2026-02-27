@@ -8,10 +8,8 @@ prediction step.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import torch
-import torch.nn as nn
 
 from reactor_twin.core.base import AbstractNeuralDE
 
@@ -83,10 +81,7 @@ class EKFStateEstimator:
         # Precompute observation matrix
         self._H = self._observation_matrix()
 
-        logger.info(
-            f"EKFStateEstimator: state_dim={state_dim}, obs_dim={self.obs_dim}, "
-            f"dt={dt}"
-        )
+        logger.info(f"EKFStateEstimator: state_dim={state_dim}, obs_dim={self.obs_dim}, dt={dt}")
 
     @staticmethod
     def _to_matrix(val: torch.Tensor | float, dim: int) -> torch.Tensor:
@@ -110,9 +105,7 @@ class EKFStateEstimator:
         # ode_func.forward(t, z, u=None)
         return self.model.ode_func(t, z)
 
-    def _compute_jacobian(
-        self, z: torch.Tensor, t: torch.Tensor
-    ) -> torch.Tensor:
+    def _compute_jacobian(self, z: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """Compute the Jacobian df/dz via autograd.
 
         Tries ``torch.func.jacrev`` first (vectorized, fast) and falls
@@ -133,8 +126,10 @@ class EKFStateEstimator:
             F = jac_fn(z, t)
         except Exception:
             logger.debug("torch.func.jacrev failed; falling back to autograd.functional.jacobian")
+
             def _fn(z_in: torch.Tensor) -> torch.Tensor:
                 return self.model.ode_func(t, z_in.unsqueeze(0)).squeeze(0)
+
             F = torch.autograd.functional.jacobian(_fn, z)
             F = F.detach()
         return F
@@ -281,9 +276,7 @@ class EKFStateEstimator:
 
         # Storage
         states = torch.zeros(num_times, self.state_dim, device=self.device)
-        covariances = torch.zeros(
-            num_times, self.state_dim, self.state_dim, device=self.device
-        )
+        covariances = torch.zeros(num_times, self.state_dim, self.state_dim, device=self.device)
         innovations = torch.zeros(num_times, self.obs_dim, device=self.device)
 
         self._current_time = 0.0  # Reset time for new filter pass

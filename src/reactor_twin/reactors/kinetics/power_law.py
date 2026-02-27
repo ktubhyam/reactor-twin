@@ -84,6 +84,7 @@ class PowerLawKinetics(AbstractKinetics):
         if self.A is not None and self.E_a is not None:
             # k(T) = A * exp(-E_a/(R*T))
             from reactor_twin.utils.constants import R_GAS
+
             k_T = self.A * np.exp(-self.E_a / (R_GAS * temperature))
         else:
             k_T = self.k

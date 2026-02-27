@@ -6,7 +6,7 @@ import logging
 from abc import ABC, abstractmethod
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 logger = logging.getLogger(__name__)
 
@@ -176,9 +176,7 @@ class ResNetODEFunc(AbstractODEFunc):
 
         blocks: list[nn.Module] = []
         for _ in range(num_layers):
-            blocks.append(
-                nn.Sequential(nn.Linear(hidden_dim, hidden_dim), act_fn)
-            )
+            blocks.append(nn.Sequential(nn.Linear(hidden_dim, hidden_dim), act_fn))
         self.blocks = nn.ModuleList(blocks)
 
         self.output_proj = nn.Linear(hidden_dim, state_dim)

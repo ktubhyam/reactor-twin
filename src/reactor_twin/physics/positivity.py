@@ -51,13 +51,9 @@ class PositivityConstraint(AbstractConstraint):
         self.epsilon = epsilon
 
         if method not in ("softplus", "relu", "square"):
-            raise ValueError(
-                f"method must be 'softplus', 'relu', or 'square', got '{method}'"
-            )
+            raise ValueError(f"method must be 'softplus', 'relu', or 'square', got '{method}'")
 
-        logger.debug(
-            f"Initialized PositivityConstraint: method={method}, epsilon={epsilon}"
-        )
+        logger.debug(f"Initialized PositivityConstraint: method={method}, epsilon={epsilon}")
 
     def project(self, z: torch.Tensor) -> torch.Tensor:
         """Project state to non-negative values (hard mode).
@@ -82,7 +78,7 @@ class PositivityConstraint(AbstractConstraint):
         elif self.method == "relu":
             z_constrained = torch.nn.functional.relu(z_subset) + self.epsilon
         elif self.method == "square":
-            z_constrained = z_subset ** 2 + self.epsilon
+            z_constrained = z_subset**2 + self.epsilon
         else:
             raise ValueError(f"Unknown method: {self.method}")
 
@@ -111,7 +107,7 @@ class PositivityConstraint(AbstractConstraint):
 
         # Penalty: sum of squared negative parts
         negative_part = torch.nn.functional.relu(-z_subset)
-        penalty = torch.mean(negative_part ** 2)
+        penalty = torch.mean(negative_part**2)
 
         return penalty
 

@@ -16,6 +16,7 @@ st.title("Sensitivity Analysis")
 def _safe_import_plotly():
     try:
         import plotly.graph_objects as go
+
         return go
     except ImportError:
         return None
@@ -40,8 +41,8 @@ params_to_test = st.sidebar.multiselect(
 # ── run ──────────────────────────────────────────────────────────────
 
 if st.sidebar.button("Run Sensitivity Analysis", type="primary"):
-    from reactor_twin.training.data_generator import ReactorDataGenerator
     from reactor_twin.reactors.systems import create_exothermic_cstr
+    from reactor_twin.training.data_generator import ReactorDataGenerator
 
     labels = create_exothermic_cstr().get_state_labels()
     go = _safe_import_plotly()
@@ -92,14 +93,24 @@ if st.sidebar.button("Run Sensitivity Analysis", type="primary"):
 
     if go is not None:
         fig = go.Figure()
-        fig.add_trace(go.Bar(
-            y=sorted_params, x=lows, orientation="h",
-            name=f"-{perturbation*100:.0f}%", marker_color="steelblue",
-        ))
-        fig.add_trace(go.Bar(
-            y=sorted_params, x=highs, orientation="h",
-            name=f"+{perturbation*100:.0f}%", marker_color="salmon",
-        ))
+        fig.add_trace(
+            go.Bar(
+                y=sorted_params,
+                x=lows,
+                orientation="h",
+                name=f"-{perturbation * 100:.0f}%",
+                marker_color="steelblue",
+            )
+        )
+        fig.add_trace(
+            go.Bar(
+                y=sorted_params,
+                x=highs,
+                orientation="h",
+                name=f"+{perturbation * 100:.0f}%",
+                marker_color="salmon",
+            )
+        )
         fig.update_layout(
             barmode="overlay",
             xaxis_title=f"Change in SS {labels[output_var]}",
@@ -108,10 +119,11 @@ if st.sidebar.button("Run Sensitivity Analysis", type="primary"):
         st.plotly_chart(fig, use_container_width=True)
     else:
         import matplotlib.pyplot as plt
+
         fig, ax = plt.subplots()
         y_pos = np.arange(len(sorted_params))
-        ax.barh(y_pos, lows, color="steelblue", label=f"-{perturbation*100:.0f}%")
-        ax.barh(y_pos, highs, color="salmon", label=f"+{perturbation*100:.0f}%")
+        ax.barh(y_pos, lows, color="steelblue", label=f"-{perturbation * 100:.0f}%")
+        ax.barh(y_pos, highs, color="salmon", label=f"+{perturbation * 100:.0f}%")
         ax.set_yticks(y_pos)
         ax.set_yticklabels(sorted_params)
         ax.set_xlabel(f"Change in SS {labels[output_var]}")
@@ -121,14 +133,17 @@ if st.sidebar.button("Run Sensitivity Analysis", type="primary"):
     # Sensitivity table
     st.subheader("Sensitivity Summary")
     import pandas as pd
-    df = pd.DataFrame({
-        "Parameter": list(sensitivities.keys()),
-        "Base Value": [reactor_base.params.get(p, 0) for p in sensitivities],
-        f"SS {labels[output_var]} (low)": [low_vals[p] for p in sensitivities],
-        f"SS {labels[output_var]} (base)": [base_val] * len(sensitivities),
-        f"SS {labels[output_var]} (high)": [high_vals[p] for p in sensitivities],
-        "Sensitivity": [sensitivities[p] for p in sensitivities],
-    })
+
+    df = pd.DataFrame(
+        {
+            "Parameter": list(sensitivities.keys()),
+            "Base Value": [reactor_base.params.get(p, 0) for p in sensitivities],
+            f"SS {labels[output_var]} (low)": [low_vals[p] for p in sensitivities],
+            f"SS {labels[output_var]} (base)": [base_val] * len(sensitivities),
+            f"SS {labels[output_var]} (high)": [high_vals[p] for p in sensitivities],
+            "Sensitivity": [sensitivities[p] for p in sensitivities],
+        }
+    )
     st.dataframe(df, use_container_width=True)
 
 else:

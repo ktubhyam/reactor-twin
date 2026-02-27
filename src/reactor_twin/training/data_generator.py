@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import numpy as np
 import torch
@@ -47,10 +46,7 @@ class ReactorDataGenerator:
         self.rtol = rtol
         self.atol = atol
 
-        logger.info(
-            f"Initialized ReactorDataGenerator: "
-            f"reactor={reactor.name}, method={method}"
-        )
+        logger.info(f"Initialized ReactorDataGenerator: reactor={reactor.name}, method={method}")
 
     def generate_trajectory(
         self,
@@ -191,14 +187,10 @@ class ReactorDataGenerator:
             dataset.append(batch)
 
             logger.debug(
-                f"Generated batch {i+1}/{num_batches}: "
-                f"{current_batch_size} trajectories"
+                f"Generated batch {i + 1}/{num_batches}: {current_batch_size} trajectories"
             )
 
-        logger.info(
-            f"Generated dataset: {num_trajectories} trajectories, "
-            f"{num_batches} batches"
-        )
+        logger.info(f"Generated dataset: {num_trajectories} trajectories, {num_batches} batches")
         return dataset
 
 

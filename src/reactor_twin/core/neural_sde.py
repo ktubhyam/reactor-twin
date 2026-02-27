@@ -19,7 +19,7 @@ import logging
 from typing import Any
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from reactor_twin.core.base import AbstractNeuralDE
 from reactor_twin.core.ode_func import AbstractODEFunc, MLPODEFunc
@@ -30,12 +30,12 @@ logger = logging.getLogger(__name__)
 # Check if torchsde is available
 try:
     from torchsde import sdeint
+
     TORCHSDE_AVAILABLE = True
 except ImportError:
     TORCHSDE_AVAILABLE = False
     logger.warning(
-        "torchsde not installed. Neural SDE will not work. "
-        "Install with: pip install torchsde"
+        "torchsde not installed. Neural SDE will not work. Install with: pip install torchsde"
     )
 
 
@@ -168,8 +168,7 @@ class NeuralSDE(AbstractNeuralDE):
 
         if not TORCHSDE_AVAILABLE:
             raise ImportError(
-                "torchsde is required for Neural SDE. "
-                "Install with: pip install torchsde"
+                "torchsde is required for Neural SDE. Install with: pip install torchsde"
             )
 
         # Create drift function if not provided
@@ -219,8 +218,6 @@ class NeuralSDE(AbstractNeuralDE):
         """
         if controls is not None:
             raise NotImplementedError("Controls not yet supported for Neural SDE")
-
-        batch_size = z0.shape[0]
 
         # Generate multiple sample paths
         trajectories = []
@@ -311,7 +308,7 @@ class NeuralSDE(AbstractNeuralDE):
 
             # Compute statistics
             mean = samples.mean(dim=0)  # (batch, time, state_dim)
-            std = samples.std(dim=0)    # (batch, time, state_dim)
+            std = samples.std(dim=0)  # (batch, time, state_dim)
 
         return mean, std
 

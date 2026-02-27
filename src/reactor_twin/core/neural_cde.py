@@ -17,10 +17,9 @@ for Irregular Time Series." NeurIPS Spotlight.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from reactor_twin.core.base import AbstractNeuralDE
 from reactor_twin.utils.registry import NEURAL_DE_REGISTRY
@@ -30,12 +29,12 @@ logger = logging.getLogger(__name__)
 # Check if torchcde is available
 try:
     import torchcde
+
     TORCHCDE_AVAILABLE = True
 except ImportError:
     TORCHCDE_AVAILABLE = False
     logger.warning(
-        "torchcde not installed. Neural CDE will not work. "
-        "Install with: pip install torchcde"
+        "torchcde not installed. Neural CDE will not work. Install with: pip install torchcde"
     )
 
 
@@ -68,7 +67,7 @@ class CDEFunc(nn.Module):
         layers: list[nn.Module] = []
         in_dim = state_dim
 
-        for i in range(num_layers - 1):
+        for _i in range(num_layers - 1):
             layers.append(nn.Linear(in_dim, hidden_dim))
             layers.append(nn.Tanh())
             in_dim = hidden_dim
@@ -147,8 +146,7 @@ class NeuralCDE(AbstractNeuralDE):
 
         if not TORCHCDE_AVAILABLE:
             raise ImportError(
-                "torchcde is required for Neural CDE. "
-                "Install with: pip install torchcde"
+                "torchcde is required for Neural CDE. Install with: pip install torchcde"
             )
 
         # Initial projection from observations to hidden state
@@ -201,9 +199,6 @@ class NeuralCDE(AbstractNeuralDE):
         """
         if controls is None:
             raise ValueError("Neural CDE requires 'controls' (observation sequence)")
-
-        batch_size = controls.shape[0]
-        num_times = controls.shape[1]
 
         # Interpolate observations to get continuous control path
         if self.interpolation == "linear":
@@ -286,8 +281,6 @@ class NeuralCDE(AbstractNeuralDE):
         Returns:
             Predictions at prediction_times, shape (batch, num_pred, output_dim).
         """
-        batch_size = observations.shape[0]
-
         # For irregularly-sampled data, we need to:
         # 1. Sort observations by time
         # 2. Interpolate to create control path

@@ -17,6 +17,7 @@ st.title("Model Validation")
 def _safe_import_plotly():
     try:
         import plotly.graph_objects as go
+
         return go
     except ImportError:
         return None
@@ -41,8 +42,8 @@ num_points = st.sidebar.slider("Time points", 20, 200, 50)
 
 if st.sidebar.button("Train & Validate", type="primary"):
     from reactor_twin.core.neural_ode import NeuralODE
-    from reactor_twin.training.data_generator import ReactorDataGenerator
     from reactor_twin.reactors.systems import create_exothermic_cstr, create_van_de_vusse_cstr
+    from reactor_twin.training.data_generator import ReactorDataGenerator
 
     progress = st.progress(0, text="Creating reactor...")
     factory = create_exothermic_cstr if "Exothermic" in reactor_choice else create_van_de_vusse_cstr
@@ -70,7 +71,7 @@ if st.sidebar.button("Train & Validate", type="primary"):
         epoch_loss /= len(train_data)
         losses.append(epoch_loss)
         pct = 20 + int(70 * (epoch + 1) / num_epochs)
-        progress.progress(pct, text=f"Epoch {epoch+1}/{num_epochs} | Loss: {epoch_loss:.6f}")
+        progress.progress(pct, text=f"Epoch {epoch + 1}/{num_epochs} | Loss: {epoch_loss:.6f}")
 
     progress.progress(95, text="Generating validation trajectories...")
 
@@ -92,14 +93,19 @@ if st.sidebar.button("Train & Validate", type="primary"):
     st.subheader("Training Loss")
     if go is not None:
         fig_loss = go.Figure()
-        fig_loss.add_trace(go.Scatter(
-            x=list(range(1, num_epochs + 1)), y=losses,
-            mode="lines+markers", name="Train loss",
-        ))
+        fig_loss.add_trace(
+            go.Scatter(
+                x=list(range(1, num_epochs + 1)),
+                y=losses,
+                mode="lines+markers",
+                name="Train loss",
+            )
+        )
         fig_loss.update_layout(xaxis_title="Epoch", yaxis_title="MSE Loss", yaxis_type="log")
         st.plotly_chart(fig_loss, use_container_width=True)
     else:
         import matplotlib.pyplot as plt
+
         fig_l, ax_l = plt.subplots()
         ax_l.semilogy(range(1, num_epochs + 1), losses)
         ax_l.set_xlabel("Epoch")
@@ -116,12 +122,16 @@ if st.sidebar.button("Train & Validate", type="primary"):
             if go is not None:
                 fig_ov = go.Figure()
                 fig_ov.add_trace(go.Scatter(x=t, y=y_true[:, i], mode="lines", name="Truth"))
-                fig_ov.add_trace(go.Scatter(x=t, y=y_pred[:, i], mode="lines", name="Predicted",
-                                            line=dict(dash="dash")))
+                fig_ov.add_trace(
+                    go.Scatter(
+                        x=t, y=y_pred[:, i], mode="lines", name="Predicted", line=dict(dash="dash")
+                    )
+                )
                 fig_ov.update_layout(title=labels[i], xaxis_title="Time", yaxis_title=labels[i])
                 st.plotly_chart(fig_ov, use_container_width=True)
             else:
                 import matplotlib.pyplot as plt
+
                 fig_o, ax_o = plt.subplots()
                 ax_o.plot(t, y_true[:, i], label="Truth")
                 ax_o.plot(t, y_pred[:, i], "--", label="Predicted")
@@ -140,22 +150,34 @@ if st.sidebar.button("Train & Validate", type="primary"):
                 lo = min(y_true[:, i].min(), y_pred[:, i].min())
                 hi = max(y_true[:, i].max(), y_pred[:, i].max())
                 fig_p = go.Figure()
-                fig_p.add_trace(go.Scatter(
-                    x=y_true[:, i], y=y_pred[:, i],
-                    mode="markers", name=labels[i],
-                ))
-                fig_p.add_trace(go.Scatter(
-                    x=[lo, hi], y=[lo, hi],
-                    mode="lines", name="y=x", line=dict(dash="dot", color="gray"),
-                ))
+                fig_p.add_trace(
+                    go.Scatter(
+                        x=y_true[:, i],
+                        y=y_pred[:, i],
+                        mode="markers",
+                        name=labels[i],
+                    )
+                )
+                fig_p.add_trace(
+                    go.Scatter(
+                        x=[lo, hi],
+                        y=[lo, hi],
+                        mode="lines",
+                        name="y=x",
+                        line=dict(dash="dot", color="gray"),
+                    )
+                )
                 fig_p.update_layout(title=labels[i], xaxis_title="True", yaxis_title="Predicted")
                 st.plotly_chart(fig_p, use_container_width=True)
             else:
                 import matplotlib.pyplot as plt
+
                 fig_pp, ax_pp = plt.subplots()
                 ax_pp.scatter(y_true[:, i], y_pred[:, i], s=10)
-                lims = [min(y_true[:, i].min(), y_pred[:, i].min()),
-                        max(y_true[:, i].max(), y_pred[:, i].max())]
+                lims = [
+                    min(y_true[:, i].min(), y_pred[:, i].min()),
+                    max(y_true[:, i].max(), y_pred[:, i].max()),
+                ]
                 ax_pp.plot(lims, lims, "k--", alpha=0.5)
                 ax_pp.set_title(labels[i])
                 ax_pp.set_xlabel("True")
@@ -165,17 +187,20 @@ if st.sidebar.button("Train & Validate", type="primary"):
     # ── Error metrics ──
     st.subheader("Error Metrics")
     errors = y_true - y_pred
-    mse_per_var = np.mean(errors ** 2, axis=0)
+    mse_per_var = np.mean(errors**2, axis=0)
     mae_per_var = np.mean(np.abs(errors), axis=0)
     max_err_per_var = np.max(np.abs(errors), axis=0)
 
     import pandas as pd
-    metrics_df = pd.DataFrame({
-        "Variable": labels,
-        "MSE": mse_per_var,
-        "MAE": mae_per_var,
-        "Max Abs Error": max_err_per_var,
-    })
+
+    metrics_df = pd.DataFrame(
+        {
+            "Variable": labels,
+            "MSE": mse_per_var,
+            "MAE": mae_per_var,
+            "Max Abs Error": max_err_per_var,
+        }
+    )
     st.dataframe(metrics_df, use_container_width=True)
 
     m1, m2 = st.columns(2)

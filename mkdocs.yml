@@ -1,0 +1,70 @@
+site_name: ReactorTwin
+site_description: Physics-constrained Neural DEs for chemical reactor digital twins
+site_url: https://ktubhyam.github.io/reactor-twin
+repo_url: https://github.com/ktubhyam/reactor-twin
+repo_name: ktubhyam/reactor-twin
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - search.suggest
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_root_heading: true
+            heading_level: 3
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quickstart: getting-started/quickstart.md
+  - User Guide:
+    - Reactors: guide/reactors.md
+    - Kinetics: guide/kinetics.md
+    - Neural DEs: guide/neural-des.md
+    - Physics Constraints: guide/constraints.md
+    - Digital Twin: guide/digital-twin.md
+  - API Reference:
+    - Core: api/core.md
+    - Reactors: api/reactors.md
+    - Physics: api/physics.md
+    - Training: api/training.md
+    - Digital Twin: api/digital-twin.md
+    - Utils: api/utils.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.js

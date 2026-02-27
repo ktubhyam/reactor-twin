@@ -17,6 +17,7 @@ def _safe_import_plotly():
     try:
         import plotly.figure_factory as ff
         import plotly.graph_objects as go
+
         return ff, go
     except ImportError:
         return None, None
@@ -42,8 +43,8 @@ t_end = st.sidebar.slider("Sim time", 0.5, 20.0, 5.0, step=0.5)
 # ── run ──────────────────────────────────────────────────────────────
 
 if st.sidebar.button("Generate Phase Portrait", type="primary"):
-    from reactor_twin.training.data_generator import ReactorDataGenerator
     from reactor_twin.reactors.systems import create_exothermic_cstr, create_van_de_vusse_cstr
+    from reactor_twin.training.data_generator import ReactorDataGenerator
 
     factory = create_exothermic_cstr if "Exothermic" in reactor_choice else create_van_de_vusse_cstr
     reactor = factory(isothermal=isothermal)
@@ -83,8 +84,13 @@ if st.sidebar.button("Generate Phase Portrait", type="primary"):
         if ff_mod is not None and go is not None:
             # Quiver plot
             fig = ff_mod.create_quiver(
-                X.tolist(), Y.tolist(), U.tolist(), V.tolist(),
-                scale=0.02, arrow_scale=0.3, name="Vector field",
+                X.tolist(),
+                Y.tolist(),
+                U.tolist(),
+                V.tolist(),
+                scale=0.02,
+                arrow_scale=0.3,
+                name="Vector field",
             )
 
             # Overlay trajectories
@@ -98,16 +104,24 @@ if st.sidebar.button("Generate Phase Portrait", type="primary"):
                 result = gen.generate_trajectory((0, t_end), t_eval, y0=ic)
                 if result["success"]:
                     traj = result["y"]
-                    fig.add_trace(go.Scatter(
-                        x=traj[:, x_var], y=traj[:, y_var],
-                        mode="lines", name=f"Traj {k+1}",
-                        line=dict(width=2),
-                    ))
-                    fig.add_trace(go.Scatter(
-                        x=[traj[0, x_var]], y=[traj[0, y_var]],
-                        mode="markers", showlegend=False,
-                        marker=dict(size=8, symbol="circle"),
-                    ))
+                    fig.add_trace(
+                        go.Scatter(
+                            x=traj[:, x_var],
+                            y=traj[:, y_var],
+                            mode="lines",
+                            name=f"Traj {k + 1}",
+                            line=dict(width=2),
+                        )
+                    )
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[traj[0, x_var]],
+                            y=[traj[0, y_var]],
+                            mode="markers",
+                            showlegend=False,
+                            marker=dict(size=8, symbol="circle"),
+                        )
+                    )
 
             fig.update_layout(
                 xaxis_title=labels[x_var],
@@ -117,6 +131,7 @@ if st.sidebar.button("Generate Phase Portrait", type="primary"):
             st.plotly_chart(fig, use_container_width=True)
         else:
             import matplotlib.pyplot as plt
+
             fig, ax = plt.subplots(figsize=(8, 6))
             ax.quiver(X, Y, U, V, alpha=0.5)
 
@@ -130,7 +145,7 @@ if st.sidebar.button("Generate Phase Portrait", type="primary"):
                 result = gen.generate_trajectory((0, t_end), t_eval, y0=ic)
                 if result["success"]:
                     traj = result["y"]
-                    ax.plot(traj[:, x_var], traj[:, y_var], "-", lw=2, label=f"Traj {k+1}")
+                    ax.plot(traj[:, x_var], traj[:, y_var], "-", lw=2, label=f"Traj {k + 1}")
                     ax.plot(traj[0, x_var], traj[0, y_var], "o")
 
             ax.set_xlabel(labels[x_var])

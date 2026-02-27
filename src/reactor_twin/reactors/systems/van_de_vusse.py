@@ -18,10 +18,9 @@ import numpy as np
 
 from reactor_twin.reactors.cstr import CSTRReactor
 from reactor_twin.reactors.kinetics.arrhenius import ArrheniusKinetics
+from reactor_twin.utils.constants import R_GAS
 
 logger = logging.getLogger(__name__)
-
-from reactor_twin.utils.constants import R_GAS
 
 
 def create_van_de_vusse_cstr(
@@ -74,16 +73,20 @@ def create_van_de_vusse_cstr(
         params={
             "k0": np.array([k1_0, k2_0, k3_0]),  # Pre-exponential factors
             "Ea": np.array([E1, E2, E3]),  # Activation energies
-            "stoich": np.array([
-                [-1,  1,  0,  0],  # A -> B
-                [ 0, -1,  1,  0],  # B -> C
-                [-2,  0,  0,  1],  # 2A -> D
-            ]),
-            "orders": np.array([
-                [1, 0, 0, 0],  # r1 = k1 * C_A
-                [0, 1, 0, 0],  # r2 = k2 * C_B
-                [2, 0, 0, 0],  # r3 = k3 * C_A^2
-            ]),
+            "stoich": np.array(
+                [
+                    [-1, 1, 0, 0],  # A -> B
+                    [0, -1, 1, 0],  # B -> C
+                    [-2, 0, 0, 1],  # 2A -> D
+                ]
+            ),
+            "orders": np.array(
+                [
+                    [1, 0, 0, 0],  # r1 = k1 * C_A
+                    [0, 1, 0, 0],  # r2 = k2 * C_B
+                    [2, 0, 0, 0],  # r3 = k3 * C_A^2
+                ]
+            ),
         },
     )
 

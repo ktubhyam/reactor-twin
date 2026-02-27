@@ -7,13 +7,10 @@ plant data without catastrophically forgetting prior knowledge.
 
 from __future__ import annotations
 
-import copy
 import logging
 from collections import deque
-from typing import Any
 
 import torch
-import torch.nn as nn
 
 from reactor_twin.core.base import AbstractNeuralDE
 
@@ -23,6 +20,7 @@ logger = logging.getLogger(__name__)
 # ======================================================================
 # Replay Buffer
 # ======================================================================
+
 
 class ReplayBuffer:
     """FIFO experience buffer storing ``(z0, t_span, targets)`` tuples.
@@ -48,11 +46,13 @@ class ReplayBuffer:
             t_span: Time points, shape ``(num_times,)``.
             targets: Ground-truth trajectory, shape matching model output.
         """
-        self._buffer.append({
-            "z0": z0.detach().cpu(),
-            "t_span": t_span.detach().cpu(),
-            "targets": targets.detach().cpu(),
-        })
+        self._buffer.append(
+            {
+                "z0": z0.detach().cpu(),
+                "t_span": t_span.detach().cpu(),
+                "targets": targets.detach().cpu(),
+            }
+        )
 
     def sample(self, batch_size: int) -> dict[str, torch.Tensor]:
         """Sample a random mini-batch from the buffer.
@@ -95,6 +95,7 @@ class ReplayBuffer:
 # Elastic Weight Consolidation
 # ======================================================================
 
+
 class ElasticWeightConsolidation:
     """Diagonal Fisher-information penalty to mitigate catastrophic forgetting.
 
@@ -136,9 +137,7 @@ class ElasticWeightConsolidation:
         """
         # Snapshot parameters
         self._reference_params = {
-            n: p.detach().clone()
-            for n, p in self.model.named_parameters()
-            if p.requires_grad
+            n: p.detach().clone() for n, p in self.model.named_parameters() if p.requires_grad
         }
 
         # Estimate diagonal Fisher
@@ -146,9 +145,7 @@ class ElasticWeightConsolidation:
             self._estimate_fisher(data_batches, num_samples)
         else:
             self._fisher_diag = {
-                n: torch.ones_like(p)
-                for n, p in self.model.named_parameters()
-                if p.requires_grad
+                n: torch.ones_like(p) for n, p in self.model.named_parameters() if p.requires_grad
             }
 
         self._consolidated = True
@@ -161,9 +158,7 @@ class ElasticWeightConsolidation:
     ) -> None:
         """Estimate diagonal Fisher via sampled squared gradients."""
         fisher: dict[str, torch.Tensor] = {
-            n: torch.zeros_like(p)
-            for n, p in self.model.named_parameters()
-            if p.requires_grad
+            n: torch.zeros_like(p) for n, p in self.model.named_parameters() if p.requires_grad
         }
 
         self.model.train()
@@ -205,7 +200,7 @@ class ElasticWeightConsolidation:
         for n, p in self.model.named_parameters():
             if n in self._reference_params:
                 diff = p - self._reference_params[n]
-                loss = loss + (self._fisher_diag[n] * diff ** 2).sum()
+                loss = loss + (self._fisher_diag[n] * diff**2).sum()
 
         return 0.5 * self.ewc_lambda * loss
 
@@ -213,6 +208,7 @@ class ElasticWeightConsolidation:
 # ======================================================================
 # Online Adapter
 # ======================================================================
+
 
 class OnlineAdapter:
     """Unified continual-learning engine combining replay + EWC.

@@ -73,8 +73,7 @@ class NeuralODE(AbstractNeuralDE):
         self._integrate = odeint_adjoint if adjoint else odeint
 
         logger.info(
-            f"Initialized NeuralODE: state_dim={state_dim}, "
-            f"solver={solver}, adjoint={adjoint}"
+            f"Initialized NeuralODE: state_dim={state_dim}, solver={solver}, adjoint={adjoint}"
         )
 
     def forward(
@@ -96,7 +95,7 @@ class NeuralODE(AbstractNeuralDE):
         """
         # Controls: if provided, set as constant on the ODE function
         if controls is not None:
-            if hasattr(self.ode_func, '_constant_controls'):
+            if hasattr(self.ode_func, "_constant_controls"):
                 self.ode_func._constant_controls = controls
             else:
                 logger.warning(

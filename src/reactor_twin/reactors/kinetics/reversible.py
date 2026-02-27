@@ -208,7 +208,12 @@ class ReversibleKinetics(AbstractKinetics):
         """
         from reactor_twin.utils.constants import R_GAS
 
-        if self.A_f is not None and self.E_a_f is not None and self.A_r is not None and self.E_a_r is not None:
+        if (
+            self.A_f is not None
+            and self.E_a_f is not None
+            and self.A_r is not None
+            and self.E_a_r is not None
+        ):
             k_f_T = self.A_f * np.exp(-self.E_a_f / (R_GAS * temperature))
             k_r_T = self.A_r * np.exp(-self.E_a_r / (R_GAS * temperature))
             return k_f_T / k_r_T

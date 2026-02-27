@@ -16,6 +16,7 @@ st.title("Parameter Sweep")
 def _safe_import_plotly():
     try:
         import plotly.graph_objects as go
+
         return go
     except ImportError:
         return None
@@ -49,8 +50,8 @@ t_settle = st.sidebar.slider("Settling time", 5.0, 100.0, 30.0)
 # ── run ──────────────────────────────────────────────────────────────
 
 if st.sidebar.button("Run Sweep", type="primary"):
-    from reactor_twin.training.data_generator import ReactorDataGenerator
     from reactor_twin.reactors.systems import create_exothermic_cstr
+    from reactor_twin.training.data_generator import ReactorDataGenerator
 
     labels = create_exothermic_cstr().get_state_labels()
     go = _safe_import_plotly()
@@ -80,6 +81,7 @@ if st.sidebar.button("Run Sweep", type="primary"):
             st.plotly_chart(fig, use_container_width=True)
         else:
             import matplotlib.pyplot as plt
+
             fig, ax = plt.subplots()
             ax.plot(vals, results, "o-")
             ax.set_xlabel(param1)
@@ -106,17 +108,23 @@ if st.sidebar.button("Run Sweep", type="primary"):
 
         st.subheader(f"2-D Heatmap: {param1} x {param2}")
         if go is not None:
-            fig = go.Figure(data=go.Heatmap(
-                z=Z, x=v1, y=v2,
-                colorbar=dict(title=f"SS {labels[output_var]}"),
-            ))
+            fig = go.Figure(
+                data=go.Heatmap(
+                    z=Z,
+                    x=v1,
+                    y=v2,
+                    colorbar=dict(title=f"SS {labels[output_var]}"),
+                )
+            )
             fig.update_layout(xaxis_title=param1, yaxis_title=param2)
             st.plotly_chart(fig, use_container_width=True)
         else:
             import matplotlib.pyplot as plt
+
             fig, ax = plt.subplots()
-            im = ax.imshow(Z, extent=[p1_min, p1_max, p2_min, p2_max],
-                           aspect="auto", origin="lower")
+            im = ax.imshow(
+                Z, extent=[p1_min, p1_max, p2_min, p2_max], aspect="auto", origin="lower"
+            )
             ax.set_xlabel(param1)
             ax.set_ylabel(param2)
             plt.colorbar(im, ax=ax)

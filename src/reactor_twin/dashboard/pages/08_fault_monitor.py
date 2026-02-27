@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import numpy as np
 import streamlit as st
-import torch
 
 st.set_page_config(page_title="Fault Monitor", layout="wide")
 st.title("Fault Detection Monitor")
@@ -17,6 +16,7 @@ st.title("Fault Detection Monitor")
 def _safe_import_plotly():
     try:
         import plotly.graph_objects as go
+
         return go
     except ImportError:
         return None
@@ -38,7 +38,7 @@ cusum_h = st.sidebar.slider("CUSUM threshold h", 1.0, 10.0, 5.0, step=0.5)
 
 if st.sidebar.button("Run Fault Detection", type="primary"):
     from reactor_twin.core.neural_ode import NeuralODE
-    from reactor_twin.digital_twin.fault_detector import FaultDetector, SPCChart
+    from reactor_twin.digital_twin.fault_detector import SPCChart
 
     state_dim = 3
     model = NeuralODE(state_dim=state_dim)
@@ -82,16 +82,22 @@ if st.sidebar.button("Run Fault Detection", type="primary"):
         if go is not None:
             fig = go.Figure()
             for v in range(state_dim):
-                fig.add_trace(go.Scatter(
-                    x=time_axis, y=ewma_vals[:, v],
-                    mode="lines", name=f"Var {v}",
-                ))
-            fig.add_vline(x=fault_start, line_dash="dash", line_color="red",
-                          annotation_text="Fault injected")
+                fig.add_trace(
+                    go.Scatter(
+                        x=time_axis,
+                        y=ewma_vals[:, v],
+                        mode="lines",
+                        name=f"Var {v}",
+                    )
+                )
+            fig.add_vline(
+                x=fault_start, line_dash="dash", line_color="red", annotation_text="Fault injected"
+            )
             fig.update_layout(xaxis_title="Step", yaxis_title="EWMA value")
             st.plotly_chart(fig, use_container_width=True)
         else:
             import matplotlib.pyplot as plt
+
             fig, ax = plt.subplots()
             for v in range(state_dim):
                 ax.plot(time_axis, ewma_vals[:, v], label=f"Var {v}")
@@ -104,17 +110,23 @@ if st.sidebar.button("Run Fault Detection", type="primary"):
         if go is not None:
             fig2 = go.Figure()
             for v in range(state_dim):
-                fig2.add_trace(go.Scatter(
-                    x=time_axis, y=cusum_pos_vals[:, v],
-                    mode="lines", name=f"Var {v}",
-                ))
-            fig2.add_hline(y=cusum_h, line_dash="dot", line_color="orange",
-                           annotation_text="Threshold")
+                fig2.add_trace(
+                    go.Scatter(
+                        x=time_axis,
+                        y=cusum_pos_vals[:, v],
+                        mode="lines",
+                        name=f"Var {v}",
+                    )
+                )
+            fig2.add_hline(
+                y=cusum_h, line_dash="dot", line_color="orange", annotation_text="Threshold"
+            )
             fig2.add_vline(x=fault_start, line_dash="dash", line_color="red")
             fig2.update_layout(xaxis_title="Step", yaxis_title="CUSUM S+")
             st.plotly_chart(fig2, use_container_width=True)
         else:
             import matplotlib.pyplot as plt
+
             fig2, ax2 = plt.subplots()
             for v in range(state_dim):
                 ax2.plot(time_axis, cusum_pos_vals[:, v], label=f"Var {v}")

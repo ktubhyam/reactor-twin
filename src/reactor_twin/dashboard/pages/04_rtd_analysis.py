@@ -16,6 +16,7 @@ st.title("Residence Time Distribution Analysis")
 def _safe_import_plotly():
     try:
         import plotly.graph_objects as go
+
         return go
     except ImportError:
         return None
@@ -50,8 +51,8 @@ it to the ideal CSTR RTD.
 # ── run ──────────────────────────────────────────────────────────────
 
 if st.sidebar.button("Compute RTD", type="primary"):
-    from reactor_twin.training.data_generator import ReactorDataGenerator
     from reactor_twin.reactors.systems import create_exothermic_cstr
+    from reactor_twin.training.data_generator import ReactorDataGenerator
 
     reactor = create_exothermic_cstr(isothermal=isothermal)
     gen = ReactorDataGenerator(reactor)
@@ -97,6 +98,7 @@ if st.sidebar.button("Compute RTD", type="primary"):
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 import matplotlib.pyplot as plt
+
                 fig, ax = plt.subplots()
                 ax.plot(t, C_tracer)
                 ax.set_xlabel("Time")
@@ -108,12 +110,16 @@ if st.sidebar.button("Compute RTD", type="primary"):
             if go is not None:
                 fig2 = go.Figure()
                 fig2.add_trace(go.Scatter(x=t, y=E_t, mode="lines", name="E(t) simulated"))
-                fig2.add_trace(go.Scatter(x=t, y=E_ideal, mode="lines", name="E(t) ideal CSTR",
-                                          line=dict(dash="dash")))
+                fig2.add_trace(
+                    go.Scatter(
+                        x=t, y=E_ideal, mode="lines", name="E(t) ideal CSTR", line=dict(dash="dash")
+                    )
+                )
                 fig2.update_layout(xaxis_title="Time", yaxis_title="E(t)")
                 st.plotly_chart(fig2, use_container_width=True)
             else:
                 import matplotlib.pyplot as plt
+
                 fig2, ax2 = plt.subplots()
                 ax2.plot(t, E_t, label="Simulated")
                 ax2.plot(t, E_ideal, "--", label="Ideal CSTR")
