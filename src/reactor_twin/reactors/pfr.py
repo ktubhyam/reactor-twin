@@ -161,8 +161,9 @@ class PlugFlowReactor(AbstractReactor):
                 Shape: (num_species * num_cells,).
         """
         # Default: initialize all cells with inlet concentration
+        # State layout: [C_0,cell_0,...,C_0,cell_N-1, C_1,cell_0,...,C_1,cell_N-1]
         C_in = np.array(self.params["C_in"])
-        C0 = np.tile(C_in, self.num_cells)  # Repeat for all cells
+        C0 = np.repeat(C_in, self.num_cells)  # Each species value repeated for all cells
         return C0
 
     def get_state_labels(self) -> list[str]:

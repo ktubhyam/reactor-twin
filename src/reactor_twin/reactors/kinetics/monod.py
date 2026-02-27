@@ -79,7 +79,8 @@ class MonodKinetics(AbstractKinetics):
         self.product_idx = params.get("product_idx", product_idx)
 
         num_reactions = 2 if self.product_idx is not None else 1
-        super().__init__(name, num_reactions, num_species, params or {})
+        self.num_species = num_species
+        super().__init__(name, num_reactions, params or {})
 
         logger.debug(
             f"Initialized MonodKinetics: mu_max={self.mu_max}, "
