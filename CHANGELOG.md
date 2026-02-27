@@ -5,7 +5,7 @@ All notable changes to ReactorTwin will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.0] - 2026-02-28
 
 ### Added (Phase 6 -- Polish & Release)
 - 5 tutorial Jupyter notebooks (getting started, physics constraints, advanced Neural DEs, digital twin pipeline, custom extensions)
@@ -127,7 +127,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - 14 example scripts added (population balance example deferred to v0.2.0)
 - `examples/00_quickstart.py` updated for Phase 5 components
 
-## [0.1.0] - 2026-02-27
+## [0.0.1] - 2026-02-27
 
 Initial architecture setup. Foundation for physics-constrained Neural DEs.
 

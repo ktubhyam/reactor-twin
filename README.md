@@ -2,8 +2,11 @@
 
 **Physics-Constrained Neural Differential Equations for Chemical Reactor Digital Twins**
 
+[![PyPI version](https://img.shields.io/pypi/v/reactor-twin.svg)](https://pypi.org/project/reactor-twin/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/ktubhyam/reactor-twin/actions/workflows/ci.yml/badge.svg)](https://github.com/ktubhyam/reactor-twin/actions/workflows/ci.yml)
+[![Documentation](https://img.shields.io/badge/docs-mkdocs-blue.svg)](https://ktubhyam.github.io/reactor-twin)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
 ---
@@ -15,7 +18,7 @@ ReactorTwin is a framework for building **digital twins** of chemical reactors u
 - **5 Neural DE variants**: Standard, Latent, Augmented, SDE, CDE
 - **4 reactor types**: CSTR, Batch, Semi-batch, PFR (plug flow with Method of Lines)
 - **7 hard conservation laws**: Mass, energy, thermodynamics, stoichiometry, port-Hamiltonian, GENERIC, positivity
-- **5 kinetics models**: Arrhenius, Michaelis-Menten, Power Law, Langmuir-Hinshelwood, Reversible
+- **6 kinetics models**: Arrhenius, Michaelis-Menten, Power Law, Langmuir-Hinshelwood, Reversible, Monod
 - **Digital twin features**: EKF state estimation, 4-level fault detection, MPC control, online adaptation, meta-learning
 - **10-page Streamlit dashboard** for interactive simulation and analysis
 
@@ -98,6 +101,7 @@ predictions = model(z0=torch.randn(32, 2), t_span=torch.linspace(0, 10, 50))
 | **Power Law** | Empirical rate expressions | ✅ Complete |
 | **Langmuir-Hinshelwood** | Heterogeneous catalysis | ✅ Complete |
 | **Reversible** | Equilibrium-limited reactions | ✅ Complete |
+| **Monod** | Microbial growth kinetics | ✅ Complete |
 
 ### Physics Constraints
 
@@ -248,7 +252,7 @@ mypy src/
 - **Phase 3** (Weeks 5-6): Advanced DEs (Latent/Augmented/SDE/CDE) ✅
 - **Phase 4** (Weeks 7-8): Batch, Semi-batch, PFR + 4 kinetics + 3 benchmarks ✅
 - **Phase 5** (Weeks 9-10): Digital twin features + 10-page dashboard ✅
-- **Phase 6** (Weeks 11-12): Tests, examples, docs, PyPI release
+- **Phase 6** (Weeks 11-12): Tests, examples, docs, PyPI release ✅
 
 See [ROADMAP.md](ROADMAP.md) for details.
 

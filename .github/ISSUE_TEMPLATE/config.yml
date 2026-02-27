@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://ktubhyam.github.io/reactor-twin
+    about: Check the documentation before opening an issue
+  - name: Discussions
+    url: https://github.com/ktubhyam/reactor-twin/discussions
+    about: Ask questions and discuss ideas

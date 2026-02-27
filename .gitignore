@@ -73,6 +73,9 @@ data/
 *.h5
 *.hdf5
 
+# MkDocs
+site/
+
 # Temporary
 tmp/
 temp/
