@@ -47,6 +47,12 @@ nav:
     - Neural DEs: guide/neural-des.md
     - Physics Constraints: guide/constraints.md
     - Digital Twin: guide/digital-twin.md
+  - Tutorials:
+    - Getting Started: tutorials/01_getting_started.md
+    - Physics Constraints: tutorials/02_physics_constraints.md
+    - Advanced Neural DEs: tutorials/03_advanced_neural_des.md
+    - Digital Twin Pipeline: tutorials/04_digital_twin.md
+    - Custom Extensions: tutorials/05_custom_extensions.md
   - API Reference:
     - Core: api/core.md
     - Reactors: api/reactors.md

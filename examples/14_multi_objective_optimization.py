@@ -112,7 +112,8 @@ def train_with_weights(
         loss_history["total"].append(losses["total"].item())
         loss_history["data"].append(losses["data"].item())
         constraint_val = sum(
-            v.item() for k, v in losses.items()
+            v.item()
+            for k, v in losses.items()
             if k not in ("total", "data", "physics", "regularization")
         )
         loss_history["constraint"].append(constraint_val)
@@ -155,11 +156,11 @@ def main() -> None:
     print("\n2. Training with different loss weight configurations...")
 
     configs = [
-        {"name": "Data only",           "data": 1.0, "constraint": 0.0,  "reg": 0.0},
-        {"name": "Data + Constraint",   "data": 1.0, "constraint": 10.0, "reg": 0.0},
-        {"name": "Data + Reg",          "data": 1.0, "constraint": 0.0,  "reg": 0.001},
-        {"name": "Balanced",            "data": 1.0, "constraint": 5.0,  "reg": 0.001},
-        {"name": "Strong constraint",   "data": 1.0, "constraint": 50.0, "reg": 0.001},
+        {"name": "Data only", "data": 1.0, "constraint": 0.0, "reg": 0.0},
+        {"name": "Data + Constraint", "data": 1.0, "constraint": 10.0, "reg": 0.0},
+        {"name": "Data + Reg", "data": 1.0, "constraint": 0.0, "reg": 0.001},
+        {"name": "Balanced", "data": 1.0, "constraint": 5.0, "reg": 0.001},
+        {"name": "Strong constraint", "data": 1.0, "constraint": 50.0, "reg": 0.001},
     ]
 
     results = []
@@ -168,7 +169,9 @@ def main() -> None:
         print(f"     Weights: data={cfg['data']}, constraint={cfg['constraint']}, reg={cfg['reg']}")
 
         result = train_with_weights(
-            z0, t_span, targets,
+            z0,
+            t_span,
+            targets,
             data_weight=cfg["data"],
             constraint_weight=cfg["constraint"],
             reg_weight=cfg["reg"],
@@ -194,9 +197,11 @@ def main() -> None:
 
     # 4. ConstraintPipeline demonstration
     print("\n4. Using ConstraintPipeline for post-hoc constraint enforcement...")
-    pipeline = ConstraintPipeline([
-        PositivityConstraint(mode="hard", method="softplus"),
-    ])
+    pipeline = ConstraintPipeline(
+        [
+            PositivityConstraint(mode="hard", method="softplus"),
+        ]
+    )
 
     # Apply to unconstrained model
     unconstrained_result = results[0]  # "Data only"
@@ -216,8 +221,10 @@ def main() -> None:
     balanced = results[3]["pred_np"]
     data_only = results[0]["pred_np"]
 
-    print(f"   {'Time':>6} | {'True C_A':>9} | {'Bal C_A':>9} | {'DO C_A':>9} | "
-          f"{'True C_B':>9} | {'Bal C_B':>9} | {'DO C_B':>9}")
+    print(
+        f"   {'Time':>6} | {'True C_A':>9} | {'Bal C_A':>9} | {'DO C_A':>9} | "
+        f"{'True C_B':>9} | {'Bal C_B':>9} | {'DO C_B':>9}"
+    )
     print("   " + "-" * 65)
 
     for idx in [0, 10, 20, 30, 39]:

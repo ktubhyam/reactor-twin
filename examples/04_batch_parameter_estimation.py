@@ -119,7 +119,9 @@ def main() -> None:
     true_np = true_data  # (50, 2)
 
     # Compute errors at key times
-    print(f"   {'Time':>6} | {'True C_A':>10} | {'Pred C_A':>10} | {'True C_B':>10} | {'Pred C_B':>10}")
+    print(
+        f"   {'Time':>6} | {'True C_A':>10} | {'Pred C_A':>10} | {'True C_B':>10} | {'Pred C_B':>10}"
+    )
     print("   " + "-" * 55)
 
     for idx in [0, 12, 24, 36, 49]:

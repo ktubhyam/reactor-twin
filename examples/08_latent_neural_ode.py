@@ -15,7 +15,7 @@ import numpy as np
 import torch
 from scipy.integrate import solve_ivp
 
-from reactor_twin import CSTRReactor, ArrheniusKinetics
+from reactor_twin import ArrheniusKinetics, CSTRReactor
 from reactor_twin.core import LatentNeuralODE
 
 np.random.seed(42)
@@ -55,9 +55,7 @@ def main() -> None:
     y0 = reactor.get_initial_state()
     t_eval = np.linspace(0, 10, 40)
 
-    sol = solve_ivp(
-        reactor.ode_rhs, [0, 10], y0, t_eval=t_eval, method="LSODA"
-    )
+    sol = solve_ivp(reactor.ode_rhs, [0, 10], y0, t_eval=t_eval, method="LSODA")
 
     obs_dim = 2  # C_A, C_B
     z0_np = sol.y[:, 0]
@@ -91,7 +89,7 @@ def main() -> None:
     num_params = sum(p.numel() for p in model.parameters())
     print(f"   Obs dim: {obs_dim}, Latent dim: {latent_dim}")
     print(f"   Total parameters: {num_params:,}")
-    print(f"   Encoder type: MLP")
+    print("   Encoder type: MLP")
 
     # 3. Examine latent encoding
     print("\n3. Examining latent encoding...")
@@ -136,7 +134,9 @@ def main() -> None:
     mse = np.mean((pred_np - true_np) ** 2)
     print(f"   Reconstruction MSE: {mse:.6f}")
 
-    print(f"\n   {'Time':>6} | {'True C_A':>10} | {'Pred C_A':>10} | {'True C_B':>10} | {'Pred C_B':>10}")
+    print(
+        f"\n   {'Time':>6} | {'True C_A':>10} | {'Pred C_A':>10} | {'True C_B':>10} | {'Pred C_B':>10}"
+    )
     print("   " + "-" * 55)
 
     for idx in [0, 10, 20, 30, 39]:

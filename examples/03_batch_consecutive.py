@@ -31,16 +31,20 @@ def main() -> None:
         name="consecutive_ABC",
         num_reactions=2,
         params={
-            "k0": np.array([0.5, 0.1]),       # Pre-exponential (1/min)
-            "Ea": np.array([0.0, 0.0]),        # Zero Ea for simplicity (constant k)
-            "stoich": np.array([
-                [-1,  1,  0],  # A -> B
-                [ 0, -1,  1],  # B -> C
-            ]),
-            "orders": np.array([
-                [1, 0, 0],  # First order in A
-                [0, 1, 0],  # First order in B
-            ]),
+            "k0": np.array([0.5, 0.1]),  # Pre-exponential (1/min)
+            "Ea": np.array([0.0, 0.0]),  # Zero Ea for simplicity (constant k)
+            "stoich": np.array(
+                [
+                    [-1, 1, 0],  # A -> B
+                    [0, -1, 1],  # B -> C
+                ]
+            ),
+            "orders": np.array(
+                [
+                    [1, 0, 0],  # First order in A
+                    [0, 1, 0],  # First order in B
+                ]
+            ),
         },
     )
 
@@ -50,15 +54,15 @@ def main() -> None:
         name="batch_consecutive",
         num_species=3,
         params={
-            "V": 10.0,       # L
-            "T": 350.0,      # K (isothermal)
+            "V": 10.0,  # L
+            "T": 350.0,  # K (isothermal)
             "C_initial": [1.0, 0.0, 0.0],  # Pure A initially
         },
         kinetics=kinetics,
         isothermal=True,
     )
     print(f"   Reactor: {reactor}")
-    print(f"   Initial: C_A=1.0, C_B=0.0, C_C=0.0 mol/L")
+    print("   Initial: C_A=1.0, C_B=0.0, C_C=0.0 mol/L")
 
     # 3. Simulate
     print("\n3. Simulating batch reaction...")
@@ -85,7 +89,9 @@ def main() -> None:
 
     print(f"   Optimal batch time: {t_opt:.2f} min")
     print(f"   Maximum C_B: {C_B_max:.4f} mol/L")
-    print(f"   At t_opt: C_A={C_A[idx_max_B]:.4f}, C_B={C_B[idx_max_B]:.4f}, C_C={C_C[idx_max_B]:.4f}")
+    print(
+        f"   At t_opt: C_A={C_A[idx_max_B]:.4f}, C_B={C_B[idx_max_B]:.4f}, C_C={C_C[idx_max_B]:.4f}"
+    )
 
     # Analytical solution for t_opt: t* = ln(k1/k2) / (k1 - k2)
     k1, k2 = 0.5, 0.1
@@ -101,7 +107,9 @@ def main() -> None:
     for t_key in key_times:
         idx = np.argmin(np.abs(t_eval - t_key))
         yield_B = C_B[idx] / 1.0  # Normalized by initial C_A
-        print(f"   {t_eval[idx]:>10.1f} | {C_A[idx]:>8.4f} | {C_B[idx]:>8.4f} | {C_C[idx]:>8.4f} | {yield_B:>8.3f}")
+        print(
+            f"   {t_eval[idx]:>10.1f} | {C_A[idx]:>8.4f} | {C_B[idx]:>8.4f} | {C_C[idx]:>8.4f} | {yield_B:>8.3f}"
+        )
 
     # 6. Mass balance check
     print("\n6. Mass balance verification:")

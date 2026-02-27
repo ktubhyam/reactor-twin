@@ -63,8 +63,11 @@ def evaluate_model(
     """Evaluate model on a reactor, return MSE."""
     y0 = reactor.get_initial_state()
     sol = solve_ivp(
-        reactor.ode_rhs, [t_eval[0], t_eval[-1]], y0,
-        t_eval=t_eval, method="LSODA",
+        reactor.ode_rhs,
+        [t_eval[0], t_eval[-1]],
+        y0,
+        t_eval=t_eval,
+        method="LSODA",
     )
     true_traj = sol.y.T  # (T, 2)
 
@@ -165,7 +168,11 @@ def main() -> None:
     print("\n9. Comparison: training from scratch (same budget)...")
     torch.manual_seed(123)
     model_scratch = NeuralODE(
-        state_dim=2, hidden_dim=32, num_layers=2, solver="rk4", adjoint=False,
+        state_dim=2,
+        hidden_dim=32,
+        num_layers=2,
+        solver="rk4",
+        adjoint=False,
     )
     optimizer = torch.optim.Adam(model_scratch.parameters(), lr=0.01)
 

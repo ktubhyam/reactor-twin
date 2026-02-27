@@ -28,7 +28,7 @@ def main() -> None:
     print("              2A -> D      (parallel)")
     reactor = create_van_de_vusse_cstr()
     print(f"   Reactor: {reactor}")
-    print(f"   Species: A, B, C, D (4 components)")
+    print("   Species: A, B, C, D (4 components)")
     print(f"   State dim: {reactor.state_dim}")
 
     # 2. Simulate to steady state
@@ -45,7 +45,7 @@ def main() -> None:
     )
 
     C_A, C_B, C_C, C_D = sol.y[0, -1], sol.y[1, -1], sol.y[2, -1], sol.y[3, -1]
-    print(f"   Steady-state concentrations:")
+    print("   Steady-state concentrations:")
     print(f"     C_A = {C_A:.4f} mol/L (reactant)")
     print(f"     C_B = {C_B:.4f} mol/L (desired product)")
     print(f"     C_C = {C_C:.4f} mol/L (over-oxidation)")
@@ -66,7 +66,9 @@ def main() -> None:
 
     residence_times_s = [5, 10, 20, 40, 80, 160]  # seconds
 
-    print(f"   {'tau (s)':>8} | {'Conv_A':>8} | {'C_B':>8} | {'C_C':>8} | {'C_D':>8} | {'Sel_B':>8}")
+    print(
+        f"   {'tau (s)':>8} | {'Conv_A':>8} | {'C_B':>8} | {'C_C':>8} | {'C_D':>8} | {'Sel_B':>8}"
+    )
     print("   " + "-" * 58)
 
     for tau_s in residence_times_s:
@@ -91,7 +93,9 @@ def main() -> None:
         conv = 1.0 - ca / C_A_feed
         sel = cb / (cb + cc + cd) if (cb + cc + cd) > 1e-10 else 0.0
 
-        print(f"   {tau_s:>8.0f} | {conv:>8.3f} | {cb:>8.4f} | {cc:>8.4f} | {cd:>8.4f} | {sel:>8.3f}")
+        print(
+            f"   {tau_s:>8.0f} | {conv:>8.3f} | {cb:>8.4f} | {cc:>8.4f} | {cd:>8.4f} | {sel:>8.3f}"
+        )
 
     print("\n" + "=" * 60)
     print("Example 02 complete!")

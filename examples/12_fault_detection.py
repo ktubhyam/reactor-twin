@@ -92,13 +92,17 @@ def main() -> None:
     print("\n5. Detection results:")
     print(f"   Fault onset:             sample {fault_onset}")
     if first_ewma_alarm is not None:
-        print(f"   First EWMA alarm:        sample {first_ewma_alarm} (delay = {first_ewma_alarm - fault_onset} samples)")
+        print(
+            f"   First EWMA alarm:        sample {first_ewma_alarm} (delay = {first_ewma_alarm - fault_onset} samples)"
+        )
     else:
-        print(f"   First EWMA alarm:        not triggered")
+        print("   First EWMA alarm:        not triggered")
     if first_cusum_alarm is not None:
-        print(f"   First CUSUM alarm:       sample {first_cusum_alarm} (delay = {first_cusum_alarm - fault_onset} samples)")
+        print(
+            f"   First CUSUM alarm:       sample {first_cusum_alarm} (delay = {first_cusum_alarm - fault_onset} samples)"
+        )
     else:
-        print(f"   First CUSUM alarm:       not triggered")
+        print("   First CUSUM alarm:       not triggered")
 
     # Count alarms
     num_ewma_normal = sum(ewma_alarms[:fault_onset])
@@ -106,12 +110,20 @@ def main() -> None:
     num_ewma_fault = sum(ewma_alarms[fault_onset:])
     num_cusum_fault = sum(cusum_alarms[fault_onset:])
 
-    print(f"\n   False alarms (before fault):")
-    print(f"     EWMA:  {num_ewma_normal}/{fault_onset} = {100 * num_ewma_normal / fault_onset:.1f}%")
-    print(f"     CUSUM: {num_cusum_normal}/{fault_onset} = {100 * num_cusum_normal / fault_onset:.1f}%")
-    print(f"   True alarms (after fault):")
-    print(f"     EWMA:  {num_ewma_fault}/{num_test - fault_onset} = {100 * num_ewma_fault / (num_test - fault_onset):.1f}%")
-    print(f"     CUSUM: {num_cusum_fault}/{num_test - fault_onset} = {100 * num_cusum_fault / (num_test - fault_onset):.1f}%")
+    print("\n   False alarms (before fault):")
+    print(
+        f"     EWMA:  {num_ewma_normal}/{fault_onset} = {100 * num_ewma_normal / fault_onset:.1f}%"
+    )
+    print(
+        f"     CUSUM: {num_cusum_normal}/{fault_onset} = {100 * num_cusum_normal / fault_onset:.1f}%"
+    )
+    print("   True alarms (after fault):")
+    print(
+        f"     EWMA:  {num_ewma_fault}/{num_test - fault_onset} = {100 * num_ewma_fault / (num_test - fault_onset):.1f}%"
+    )
+    print(
+        f"     CUSUM: {num_cusum_fault}/{num_test - fault_onset} = {100 * num_cusum_fault / (num_test - fault_onset):.1f}%"
+    )
 
     # 6. Detailed timeline
     print("\n6. Alarm timeline around fault onset:")

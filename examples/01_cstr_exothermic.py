@@ -54,7 +54,9 @@ def main() -> None:
     print("\n3. Sweeping coolant temperature to show thermal behavior...")
     coolant_temps = [280, 290, 300, 310, 320]
 
-    print(f"   {'T_coolant (K)':>14} | {'C_A_ss (mol/L)':>15} | {'T_ss (K)':>10} | {'Conversion':>10}")
+    print(
+        f"   {'T_coolant (K)':>14} | {'C_A_ss (mol/L)':>15} | {'T_ss (K)':>10} | {'Conversion':>10}"
+    )
     print("   " + "-" * 60)
 
     for T_c in coolant_temps:
@@ -91,7 +93,7 @@ def main() -> None:
     T_hot = sol_hot.y[2]
     T_max = np.max(T_hot)
     T_final = T_hot[-1]
-    print(f"   Starting at T=370 K with T_coolant=305 K:")
+    print("   Starting at T=370 K with T_coolant=305 K:")
     print(f"   Peak temperature: {T_max:.1f} K")
     print(f"   Final temperature: {T_final:.1f} K")
     print(f"   Temperature overshoot: {T_max - 370.0:.1f} K")

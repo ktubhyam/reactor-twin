@@ -113,13 +113,15 @@ def main() -> None:
     ensemble_preds = np.array(ensemble_preds)  # (5, 30, 2)
 
     # Compute statistics
-    mean_pred = ensemble_preds.mean(axis=0)   # (30, 2)
-    std_pred = ensemble_preds.std(axis=0)     # (30, 2)
+    mean_pred = ensemble_preds.mean(axis=0)  # (30, 2)
+    std_pred = ensemble_preds.std(axis=0)  # (30, 2)
 
     # 4. Display results
     print("\n4. Ensemble predictions with uncertainty:")
-    print(f"   {'Time':>6} | {'True C_A':>9} | {'Mean C_A':>9} | {'Std C_A':>8} | "
-          f"{'True C_B':>9} | {'Mean C_B':>9} | {'Std C_B':>8}")
+    print(
+        f"   {'Time':>6} | {'True C_A':>9} | {'Mean C_A':>9} | {'Std C_A':>8} | "
+        f"{'True C_B':>9} | {'Mean C_B':>9} | {'Std C_B':>8}"
+    )
     print("   " + "-" * 70)
 
     for idx in range(0, len(t_eval), 5):
@@ -149,7 +151,7 @@ def main() -> None:
     print(f"   Uncertainty / noise ratio: {mean_uncertainty / noise_level:.2f}")
 
     # Individual model MSEs
-    print(f"\n   Individual model MSEs:")
+    print("\n   Individual model MSEs:")
     for i, preds in enumerate(ensemble_preds):
         mse_i = np.mean((preds - true_data) ** 2)
         print(f"     Model {i + 1}: MSE = {mse_i:.6f}")

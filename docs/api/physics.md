@@ -1,6 +1,14 @@
 # Physics Constraints
 
-Physics-informed constraint modules.
+Physics-informed constraint modules. All constraints support **hard** (projection) and **soft** (penalty) modes.
+
+## Base Classes
+
+::: reactor_twin.physics.constraints.AbstractConstraint
+
+::: reactor_twin.physics.constraints.ConstraintPipeline
+
+## Constraint Implementations
 
 ::: reactor_twin.physics.positivity.PositivityConstraint
 

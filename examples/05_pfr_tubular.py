@@ -30,10 +30,10 @@ def main() -> None:
         name="A_to_B_pfr",
         num_reactions=1,
         params={
-            "k0": np.array([1e6]),           # Pre-exponential (1/s)
-            "Ea": np.array([40000.0]),        # Activation energy (J/mol)
-            "stoich": np.array([[-1, 1]]),    # A -> B
-            "orders": np.array([[1, 0]]),     # First order in A
+            "k0": np.array([1e6]),  # Pre-exponential (1/s)
+            "Ea": np.array([40000.0]),  # Activation energy (J/mol)
+            "stoich": np.array([[-1, 1]]),  # A -> B
+            "orders": np.array([[1, 0]]),  # First order in A
         },
     )
 
@@ -44,11 +44,11 @@ def main() -> None:
         name="tubular_pfr",
         num_species=2,
         params={
-            "L": 2.0,          # Reactor length (m)
-            "u": 0.5,          # Axial velocity (m/s)
-            "D": 0.01,         # Dispersion coefficient (m^2/s)
+            "L": 2.0,  # Reactor length (m)
+            "u": 0.5,  # Axial velocity (m/s)
+            "D": 0.01,  # Dispersion coefficient (m^2/s)
             "C_in": [1.0, 0.0],  # Inlet: pure A
-            "T": 400.0,        # Temperature (K)
+            "T": 400.0,  # Temperature (K)
         },
         kinetics=kinetics,
         num_cells=num_cells,
@@ -80,16 +80,20 @@ def main() -> None:
     C_A_profile = C_profiles[0]  # Species A
     C_B_profile = C_profiles[1]  # Species B
 
-    print(f"   {'Position (m)':>12} | {'C_A (mol/L)':>12} | {'C_B (mol/L)':>12} | {'Conversion':>10}")
+    print(
+        f"   {'Position (m)':>12} | {'C_A (mol/L)':>12} | {'C_B (mol/L)':>12} | {'Conversion':>10}"
+    )
     print("   " + "-" * 52)
 
     for i in range(0, num_cells, max(1, num_cells // 10)):
         conv = 1.0 - C_A_profile[i] / 1.0
-        print(f"   {z_positions[i]:>12.3f} | {C_A_profile[i]:>12.4f} | {C_B_profile[i]:>12.4f} | {conv:>10.3f}")
+        print(
+            f"   {z_positions[i]:>12.3f} | {C_A_profile[i]:>12.4f} | {C_B_profile[i]:>12.4f} | {conv:>10.3f}"
+        )
 
     # Print outlet
     outlet = reactor.get_outlet_concentrations(y_ss)
-    print(f"\n   Outlet concentrations:")
+    print("\n   Outlet concentrations:")
     print(f"     C_A = {outlet[0]:.4f} mol/L")
     print(f"     C_B = {outlet[1]:.4f} mol/L")
     print(f"     Overall conversion = {1.0 - outlet[0] / 1.0:.3f}")

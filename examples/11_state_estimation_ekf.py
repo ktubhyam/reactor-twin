@@ -65,8 +65,11 @@ def main() -> None:
     t_eval = np.linspace(0, num_steps * dt, num_steps + 1)
 
     sol = solve_ivp(
-        reactor.ode_rhs, [0, t_eval[-1]], y0,
-        t_eval=t_eval, method="LSODA",
+        reactor.ode_rhs,
+        [0, t_eval[-1]],
+        y0,
+        t_eval=t_eval,
+        method="LSODA",
     )
     true_states = sol.y.T  # (101, 2)
     print(f"   True trajectory: {true_states.shape}")
@@ -115,13 +118,13 @@ def main() -> None:
     ekf = EKFStateEstimator(
         model=model,
         state_dim=state_dim,
-        Q=1e-3,    # Process noise
-        R=measurement_noise ** 2,  # Measurement noise (match true noise)
-        P0=0.1,    # Initial uncertainty
+        Q=1e-3,  # Process noise
+        R=measurement_noise**2,  # Measurement noise (match true noise)
+        P0=0.1,  # Initial uncertainty
         dt=dt,
     )
     print(f"   Q (process noise): {1e-3}")
-    print(f"   R (measurement noise): {measurement_noise ** 2}")
+    print(f"   R (measurement noise): {measurement_noise**2}")
 
     # 5. Run EKF filter
     print("\n5. Running EKF filter over measurements...")
@@ -141,8 +144,10 @@ def main() -> None:
 
     # 6. Compare accuracy
     print("\n6. Comparing true vs measured vs filtered states:")
-    print(f"   {'Time':>6} | {'True C_A':>9} | {'Meas C_A':>9} | {'Filt C_A':>9} | "
-          f"{'True C_B':>9} | {'Meas C_B':>9} | {'Filt C_B':>9}")
+    print(
+        f"   {'Time':>6} | {'True C_A':>9} | {'Meas C_A':>9} | {'Filt C_A':>9} | "
+        f"{'True C_B':>9} | {'Meas C_B':>9} | {'Filt C_B':>9}"
+    )
     print("   " + "-" * 68)
 
     for idx in [0, 20, 40, 60, 80, 99]:

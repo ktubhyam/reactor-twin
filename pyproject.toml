@@ -96,6 +96,7 @@ ignore = [
 "tests/*" = ["PLR2004", "SIM300"]
 "src/reactor_twin/api/*" = ["E402"]
 "src/reactor_twin/dashboard/*" = ["E402", "SIM102"]
+"examples/*" = ["PLR0915", "B007"]
 
 [tool.mypy]
 python_version = "3.10"

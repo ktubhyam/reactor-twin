@@ -161,7 +161,9 @@ def main() -> None:
 
     # 5. Compare accuracy at key times
     print("\n5. Accuracy comparison at key time points:")
-    print(f"   {'Time':>6} | {'True C_A':>9} | {'Hard C_A':>9} | {'Soft C_A':>9} | {'True C_B':>9} | {'Hard C_B':>9} | {'Soft C_B':>9}")
+    print(
+        f"   {'Time':>6} | {'True C_A':>9} | {'Hard C_A':>9} | {'Soft C_A':>9} | {'True C_B':>9} | {'Hard C_B':>9} | {'Soft C_B':>9}"
+    )
     print("   " + "-" * 68)
 
     for idx in [0, 10, 20, 30, 39]:
@@ -176,7 +178,7 @@ def main() -> None:
     mse_hard = np.mean((hard_np - true_np) ** 2)
     mse_soft = np.mean((soft_np - true_np) ** 2)
 
-    print(f"\n6. Summary:")
+    print("\n6. Summary:")
     print(f"   MSE (hard constraint): {mse_hard:.6f}")
     print(f"   MSE (soft constraint): {mse_soft:.6f}")
     print(f"   Hard guarantees non-negative: {min_hard >= 0}")

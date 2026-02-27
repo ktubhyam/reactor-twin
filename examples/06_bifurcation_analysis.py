@@ -40,9 +40,9 @@ def main() -> None:
     reactor.params["T_coolant"] = T_coolant_test
 
     initial_guesses = [
-        np.array([0.9, 0.1, 310.0]),   # Low conversion (cold)
-        np.array([0.5, 0.5, 380.0]),   # Medium conversion
-        np.array([0.05, 0.95, 450.0]), # High conversion (hot)
+        np.array([0.9, 0.1, 310.0]),  # Low conversion (cold)
+        np.array([0.5, 0.5, 380.0]),  # Medium conversion
+        np.array([0.05, 0.95, 450.0]),  # High conversion (hot)
     ]
 
     print(f"   T_coolant = {T_coolant_test} K")
@@ -60,7 +60,9 @@ def main() -> None:
                         break
                 if is_new:
                     found_states.append(ss)
-                    print(f"   SS {len(found_states)}: C_A={ss[0]:.4f}, C_B={ss[1]:.4f}, T={ss[2]:.1f} K (residual={residual:.2e})")
+                    print(
+                        f"   SS {len(found_states)}: C_A={ss[0]:.4f}, C_B={ss[1]:.4f}, T={ss[2]:.1f} K (residual={residual:.2e})"
+                    )
         except Exception:
             pass
 
