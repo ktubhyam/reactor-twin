@@ -9,7 +9,9 @@ from scipy.integrate import solve_ivp
 from reactor_twin.reactors import CSTRReactor
 from reactor_twin.reactors.systems import (
     create_bioreactor_cstr,
+    create_consecutive_cstr,
     create_exothermic_cstr,
+    create_parallel_cstr,
     create_van_de_vusse_cstr,
 )
 
@@ -158,6 +160,60 @@ class TestBioreactorSystem:
 
 
 # ---------------------------------------------------------------------------
+# Consecutive Reactions Tests
+# ---------------------------------------------------------------------------
+
+class TestConsecutiveSystem:
+    """Tests for the consecutive reactions A->B->C CSTR benchmark."""
+
+    def test_creates_cstr(self):
+        reactor = create_consecutive_cstr()
+        assert isinstance(reactor, CSTRReactor)
+
+    def test_has_three_species(self):
+        reactor = create_consecutive_cstr()
+        assert reactor.num_species == 3
+
+    def test_simulation_runs(self):
+        reactor = create_consecutive_cstr()
+        sol = simulate_reactor(reactor, t_end=5.0)
+        assert sol.success, f"Integration failed: {sol.message}"
+
+    def test_concentrations_non_negative(self):
+        reactor = create_consecutive_cstr()
+        sol = simulate_reactor(reactor, t_end=5.0)
+        assert sol.success
+        assert np.all(sol.y >= -1e-8), "Negative concentrations found"
+
+
+# ---------------------------------------------------------------------------
+# Parallel Reactions Tests
+# ---------------------------------------------------------------------------
+
+class TestParallelSystem:
+    """Tests for the parallel reactions A->B, A->C CSTR benchmark."""
+
+    def test_creates_cstr(self):
+        reactor = create_parallel_cstr()
+        assert isinstance(reactor, CSTRReactor)
+
+    def test_has_three_species(self):
+        reactor = create_parallel_cstr()
+        assert reactor.num_species == 3
+
+    def test_simulation_runs(self):
+        reactor = create_parallel_cstr()
+        sol = simulate_reactor(reactor, t_end=5.0)
+        assert sol.success, f"Integration failed: {sol.message}"
+
+    def test_concentrations_non_negative(self):
+        reactor = create_parallel_cstr()
+        sol = simulate_reactor(reactor, t_end=5.0)
+        assert sol.success
+        assert np.all(sol.y >= -1e-8), "Negative concentrations found"
+
+
+# ---------------------------------------------------------------------------
 # Parametrized creation tests (isothermal only to avoid param issues)
 # ---------------------------------------------------------------------------
 
@@ -167,8 +223,10 @@ class TestBioreactorSystem:
         create_exothermic_cstr,
         create_van_de_vusse_cstr,
         create_bioreactor_cstr,
+        create_consecutive_cstr,
+        create_parallel_cstr,
     ],
-    ids=["exothermic", "van_de_vusse", "bioreactor"],
+    ids=["exothermic", "van_de_vusse", "bioreactor", "consecutive", "parallel"],
 )
 class TestBenchmarkCommon:
     """Common tests for all benchmark systems that use proper CSTRReactor params."""
