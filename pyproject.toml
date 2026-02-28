@@ -57,6 +57,7 @@ dev = [
     "ruff>=0.1.6",
     "mypy>=1.7",
     "pre-commit>=3.6",
+    "httpx>=0.24",
 ]
 all = ["reactor-twin[dashboard,digital_twin,api,sde,cde,fast,analysis,discovery,tracking,deploy,thermo,docs,dev]"]
 
