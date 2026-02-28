@@ -98,7 +98,7 @@ class MassBalanceConstraint(AbstractConstraint):
         if self.check_total_mass:
             # Store initial mass for conservation checking
             if self.initial_mass is None:
-                self.initial_mass = z.sum(dim=-1, keepdim=True)
+                self.initial_mass = z.sum(dim=-1, keepdim=True).detach()
 
             # Project to conserve total mass
             current_mass = z.sum(dim=-1, keepdim=True)
@@ -122,8 +122,8 @@ class MassBalanceConstraint(AbstractConstraint):
             Scalar penalty for mass balance violation.
         """
         if self.initial_mass is None:
-            # First call - store initial mass
-            self.initial_mass = z[..., 0, :].sum(dim=-1, keepdim=True)  # (batch, 1)
+            # First call - store initial mass (detached: it's a reference constant)
+            self.initial_mass = z[..., 0, :].sum(dim=-1, keepdim=True).detach()  # (batch, 1)
 
         # Compute mass at all time points
         if z.ndim == 3:  # (batch, time, state_dim)
