@@ -14,8 +14,11 @@ from reactor_twin.digital_twin.fault_detector import (
 from reactor_twin.digital_twin.meta_learner import ReptileMetaLearner
 from reactor_twin.digital_twin.mpc_controller import (
     ControlConstraints,
+    EconomicMPC,
+    EconomicObjective,
     MPCController,
     MPCObjective,
+    StochasticMPC,
 )
 from reactor_twin.digital_twin.online_adapter import (
     ElasticWeightConsolidation,
@@ -39,6 +42,9 @@ __all__ = [
     "MPCObjective",
     "ControlConstraints",
     "MPCController",
+    "EconomicObjective",
+    "EconomicMPC",
+    "StochasticMPC",
     # Online adaptation
     "ReplayBuffer",
     "ElasticWeightConsolidation",

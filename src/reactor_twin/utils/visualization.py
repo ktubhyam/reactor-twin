@@ -13,6 +13,13 @@ import torch
 logger = logging.getLogger(__name__)
 
 
+def _to_numpy(x: np.ndarray | torch.Tensor) -> np.ndarray:
+    """Convert tensor to numpy array."""
+    if isinstance(x, torch.Tensor):
+        return x.detach().cpu().numpy()
+    return np.asarray(x)
+
+
 def plot_trajectory(
     t: np.ndarray | torch.Tensor,
     y: np.ndarray | torch.Tensor,
@@ -31,11 +38,34 @@ def plot_trajectory(
 
     Returns:
         Figure object (matplotlib.Figure or plotly.graph_objects.Figure)
-
-    Raises:
-        NotImplementedError: TODO
     """
-    raise NotImplementedError("TODO")
+    t_np = _to_numpy(t)
+    y_np = _to_numpy(y)
+
+    if y_np.ndim == 1:
+        y_np = y_np.reshape(-1, 1)
+
+    n_states = y_np.shape[1]
+    if labels is None:
+        labels = [f"State {i}" for i in range(n_states)]
+
+    if backend == "plotly":
+        fig = go.Figure()
+        for i in range(n_states):
+            fig.add_trace(go.Scatter(x=t_np, y=y_np[:, i], mode="lines", name=labels[i]))
+        fig.update_layout(title=title, xaxis_title="Time", yaxis_title="Value")
+        return fig
+
+    # matplotlib
+    fig, ax = plt.subplots(figsize=(10, 6))
+    for i in range(n_states):
+        ax.plot(t_np, y_np[:, i], label=labels[i])
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Value")
+    ax.set_title(title)
+    ax.legend()
+    plt.tight_layout()
+    return fig
 
 
 def plot_phase_portrait(
@@ -56,11 +86,29 @@ def plot_phase_portrait(
 
     Returns:
         Plotly Figure object
-
-    Raises:
-        NotImplementedError: TODO
     """
-    raise NotImplementedError("TODO")
+    x_np = _to_numpy(x)
+    y_np = _to_numpy(y)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=x_np, y=y_np, mode="lines",
+        line={"color": "steelblue", "width": 2},
+        name="Trajectory",
+    ))
+    # Mark start and end
+    fig.add_trace(go.Scatter(
+        x=[x_np[0]], y=[y_np[0]], mode="markers",
+        marker={"size": 10, "color": "green", "symbol": "circle"},
+        name="Start",
+    ))
+    fig.add_trace(go.Scatter(
+        x=[x_np[-1]], y=[y_np[-1]], mode="markers",
+        marker={"size": 10, "color": "red", "symbol": "x"},
+        name="End",
+    ))
+    fig.update_layout(title=title, xaxis_title=xlabel, yaxis_title=ylabel)
+    return fig
 
 
 def plot_bifurcation_diagram(
@@ -79,11 +127,23 @@ def plot_bifurcation_diagram(
 
     Returns:
         Plotly Figure object
-
-    Raises:
-        NotImplementedError: TODO
     """
-    raise NotImplementedError("TODO")
+    param_np = _to_numpy(param_values)
+    ss_np = _to_numpy(steady_states)
+
+    if ss_np.ndim == 1:
+        ss_np = ss_np.reshape(-1, 1)
+
+    fig = go.Figure()
+    n_branches = ss_np.shape[1]
+    for b in range(n_branches):
+        fig.add_trace(go.Scatter(
+            x=param_np, y=ss_np[:, b], mode="lines+markers",
+            marker={"size": 4},
+            name=f"Branch {b + 1}",
+        ))
+    fig.update_layout(title="Bifurcation Diagram", xaxis_title=param_name, yaxis_title=state_name)
+    return fig
 
 
 def plot_residual_time_distribution(
@@ -100,11 +160,18 @@ def plot_residual_time_distribution(
 
     Returns:
         Matplotlib Figure object
-
-    Raises:
-        NotImplementedError: TODO
     """
-    raise NotImplementedError("TODO")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.bar(time_bins, rtd, width=np.diff(time_bins, append=time_bins[-1] * 1.1).mean() * 0.8,
+           alpha=0.7, label="Measured RTD", color="steelblue")
+    if theoretical is not None:
+        ax.plot(time_bins, theoretical, "r-", linewidth=2, label="Theoretical")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("E(t)")
+    ax.set_title("Residence Time Distribution")
+    ax.legend()
+    plt.tight_layout()
+    return fig
 
 
 def plot_sensitivity_heatmap(
@@ -121,11 +188,24 @@ def plot_sensitivity_heatmap(
 
     Returns:
         Plotly Figure object
-
-    Raises:
-        NotImplementedError: TODO
     """
-    raise NotImplementedError("TODO")
+    sm = _to_numpy(sensitivity_matrix)
+
+    fig = go.Figure(data=go.Heatmap(
+        z=sm,
+        x=state_names,
+        y=param_names,
+        colorscale="RdBu_r",
+        zmid=0,
+        text=np.round(sm, 3).astype(str),
+        texttemplate="%{text}",
+    ))
+    fig.update_layout(
+        title="Sensitivity Analysis",
+        xaxis_title="State Variables",
+        yaxis_title="Parameters",
+    )
+    return fig
 
 
 def plot_pareto_front(
@@ -142,11 +222,46 @@ def plot_pareto_front(
 
     Returns:
         Plotly Figure object
-
-    Raises:
-        NotImplementedError: TODO
     """
-    raise NotImplementedError("TODO")
+    o1 = _to_numpy(objective_1)
+    o2 = _to_numpy(objective_2)
+
+    # Identify Pareto-optimal points
+    is_pareto = np.ones(len(o1), dtype=bool)
+    for i in range(len(o1)):
+        if is_pareto[i]:
+            # A point is dominated if another point is <= on both and < on at least one
+            is_pareto[i] = not np.any(
+                (o1[:i][is_pareto[:i]] <= o1[i]) & (o2[:i][is_pareto[:i]] <= o2[i])
+                & ((o1[:i][is_pareto[:i]] < o1[i]) | (o2[:i][is_pareto[:i]] < o2[i]))
+            ) and not np.any(
+                (o1[i + 1:] <= o1[i]) & (o2[i + 1:] <= o2[i])
+                & ((o1[i + 1:] < o1[i]) | (o2[i + 1:] < o2[i]))
+            )
+
+    fig = go.Figure()
+    # All points
+    fig.add_trace(go.Scatter(
+        x=o1, y=o2, mode="markers",
+        marker={"size": 8, "color": "lightgray"},
+        text=labels,
+        name="All Solutions",
+    ))
+    # Pareto front
+    pareto_idx = np.where(is_pareto)[0]
+    sorted_idx = pareto_idx[np.argsort(o1[pareto_idx])]
+    fig.add_trace(go.Scatter(
+        x=o1[sorted_idx], y=o2[sorted_idx], mode="lines+markers",
+        marker={"size": 10, "color": "red"},
+        line={"color": "red", "width": 2},
+        name="Pareto Front",
+    ))
+    fig.update_layout(
+        title="Pareto Front",
+        xaxis_title="Objective 1",
+        yaxis_title="Objective 2",
+    )
+    return fig
 
 
 def plot_latent_space(
@@ -163,8 +278,47 @@ def plot_latent_space(
 
     Returns:
         Plotly Figure object
-
-    Raises:
-        NotImplementedError: TODO
     """
-    raise NotImplementedError("TODO")
+    z_np = _to_numpy(z)
+    n_samples, latent_dim = z_np.shape
+
+    if latent_dim <= 2:
+        z_2d = z_np[:, :2]
+    elif method == "pca":
+        # Simple PCA via SVD (no sklearn dependency)
+        z_centered = z_np - z_np.mean(axis=0)
+        U, S, Vt = np.linalg.svd(z_centered, full_matrices=False)
+        z_2d = z_centered @ Vt[:2].T
+    elif method == "tsne":
+        try:
+            from sklearn.manifold import TSNE
+        except ImportError:
+            logger.warning("sklearn not available; falling back to PCA")
+            return plot_latent_space(z, labels, method="pca")
+        z_2d = TSNE(n_components=2, perplexity=min(30, n_samples - 1)).fit_transform(z_np)
+    elif method == "umap":
+        try:
+            import umap
+        except ImportError:
+            logger.warning("umap not available; falling back to PCA")
+            return plot_latent_space(z, labels, method="pca")
+        z_2d = umap.UMAP(n_components=2).fit_transform(z_np)
+    else:
+        raise ValueError(f"Unknown method: {method}. Use 'pca', 'tsne', or 'umap'.")
+
+    color = None
+    if labels is not None:
+        color = _to_numpy(labels)
+
+    fig = go.Figure(data=go.Scatter(
+        x=z_2d[:, 0],
+        y=z_2d[:, 1] if z_2d.shape[1] > 1 else np.zeros(n_samples),
+        mode="markers",
+        marker={"size": 6, "color": color, "colorscale": "Viridis", "showscale": color is not None},
+    ))
+    fig.update_layout(
+        title=f"Latent Space ({method.upper()})",
+        xaxis_title="Component 1",
+        yaxis_title="Component 2",
+    )
+    return fig

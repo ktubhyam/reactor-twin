@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
-    from fastapi import FastAPI, HTTPException, Query, WebSocket
+    from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
     from fastapi.middleware.cors import CORSMiddleware
     from pydantic import BaseModel
 except ImportError as exc:
@@ -53,7 +53,7 @@ class ErrorResponse(BaseModel):
 app = FastAPI(
     title="ReactorTwin API",
     description="Physics-constrained Neural DE reactor simulation API",
-    version="0.3.0",
+    version="0.4.0",
 )
 
 app.add_middleware(
@@ -145,6 +145,192 @@ async def websocket_simulate(websocket: WebSocket) -> None:
     from reactor_twin.api.websocket import simulate_ws
 
     await simulate_ws(websocket, BENCHMARKS)
+
+
+# ── API v2: Model Serving ────────────────────────────────────────────
+
+import tempfile
+from pathlib import Path
+
+import torch
+
+from reactor_twin.api.auth import create_token, rate_limiter, require_auth
+
+
+class TokenRequest(BaseModel):
+    subject: str
+
+
+class TokenResponse(BaseModel):
+    token: str
+
+
+class ModelUploadResponse(BaseModel):
+    model_id: str
+    message: str
+
+
+class PredictionRequest(BaseModel):
+    z0: list[float]
+    t_span: list[float]
+    controls: list[list[float]] | None = None
+
+
+class PredictionResponse(BaseModel):
+    trajectory: list[list[float]]
+    success: bool
+
+
+class BatchPredictionRequest(BaseModel):
+    samples: list[PredictionRequest]
+
+
+class BatchPredictionResponse(BaseModel):
+    results: list[PredictionResponse]
+    success: bool
+
+
+# In-memory model store for v2
+_loaded_models: dict[str, torch.nn.Module] = {}
+
+
+@app.post("/api/v2/token", response_model=TokenResponse)
+def get_token(req: TokenRequest) -> TokenResponse:
+    """Generate a JWT token for API access."""
+    token = create_token(req.subject)
+    return TokenResponse(token=token)
+
+
+@app.post(
+    "/api/v2/models/upload",
+    response_model=ModelUploadResponse,
+    responses={401: {"model": ErrorResponse}, 429: {"model": ErrorResponse}},
+)
+async def upload_model(
+    request: Request,
+) -> ModelUploadResponse:
+    """Upload a PyTorch model checkpoint.
+
+    Expects the raw bytes of a ``torch.save()`` checkpoint in the
+    request body.  The model is loaded into memory and assigned an ID.
+    """
+    rate_limiter.check(request)
+    user = await require_auth(request)
+
+    body = await request.body()
+    if not body:
+        raise HTTPException(status_code=400, detail="Empty request body")
+
+    # Save to temp file and load
+    with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
+        f.write(body)
+        tmp_path = f.name
+
+    try:
+        checkpoint = torch.load(tmp_path, map_location="cpu", weights_only=False)
+    except Exception as exc:
+        Path(tmp_path).unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=f"Invalid checkpoint: {exc}") from exc
+
+    import hashlib
+
+    model_id = hashlib.sha256(body[:1024]).hexdigest()[:12]
+    _loaded_models[model_id] = checkpoint
+    Path(tmp_path).unlink(missing_ok=True)
+
+    logger.info(f"Model uploaded: id={model_id}, by={user.get('sub')}")
+    return ModelUploadResponse(model_id=model_id, message="Model uploaded successfully")
+
+
+@app.post(
+    "/api/v2/models/{model_id}/predict",
+    response_model=PredictionResponse,
+    responses={
+        401: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+        429: {"model": ErrorResponse},
+    },
+)
+async def predict(
+    model_id: str,
+    req: PredictionRequest,
+    request: Request,
+) -> PredictionResponse:
+    """Run a single prediction using an uploaded model.
+
+    The model must have been previously uploaded via ``/api/v2/models/upload``.
+    """
+    rate_limiter.check(request)
+    await require_auth(request)
+
+    if model_id not in _loaded_models:
+        raise HTTPException(status_code=404, detail=f"Model '{model_id}' not found")
+
+    model = _loaded_models[model_id]
+
+    try:
+        z0 = torch.tensor(req.z0, dtype=torch.float32).unsqueeze(0)
+        t_span = torch.tensor(req.t_span, dtype=torch.float32)
+
+        if hasattr(model, "forward"):
+            controls = None
+            if req.controls is not None:
+                controls = torch.tensor(req.controls, dtype=torch.float32).unsqueeze(0)
+            with torch.no_grad():
+                result = model(z0=z0, t_span=t_span, controls=controls)
+            trajectory = result.squeeze(0).tolist()
+        else:
+            # Raw state dict — can't predict, but return placeholder
+            raise HTTPException(
+                status_code=400,
+                detail="Uploaded checkpoint is a state_dict, not a callable model",
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {exc}") from exc
+
+    return PredictionResponse(trajectory=trajectory, success=True)
+
+
+@app.post(
+    "/api/v2/models/{model_id}/batch-predict",
+    response_model=BatchPredictionResponse,
+    responses={
+        401: {"model": ErrorResponse},
+        404: {"model": ErrorResponse},
+        429: {"model": ErrorResponse},
+    },
+)
+async def batch_predict(
+    model_id: str,
+    req: BatchPredictionRequest,
+    request: Request,
+) -> BatchPredictionResponse:
+    """Run batch predictions using an uploaded model."""
+    rate_limiter.check(request)
+    await require_auth(request)
+
+    if model_id not in _loaded_models:
+        raise HTTPException(status_code=404, detail=f"Model '{model_id}' not found")
+
+    results = []
+    for sample in req.samples:
+        try:
+            resp = await predict(model_id, sample, request)
+            results.append(resp)
+        except HTTPException:
+            results.append(PredictionResponse(trajectory=[], success=False))
+
+    return BatchPredictionResponse(results=results, success=True)
+
+
+@app.get("/api/v2/models", responses={401: {"model": ErrorResponse}})
+async def list_uploaded_models(request: Request) -> dict:
+    """List all uploaded model IDs."""
+    rate_limiter.check(request)
+    await require_auth(request)
+    return {"models": list(_loaded_models.keys()), "count": len(_loaded_models)}
 
 
 # ── Entry point ──────────────────────────────────────────────────────

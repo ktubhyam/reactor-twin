@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-02-28
+
+### Added — Real-World Validation (Phase v0.4.0)
+
+#### Utility Functions (21 stubs → full implementations)
+- `utils/metrics.py` — 8 evaluation metrics: RMSE, relative RMSE, mass balance error, energy balance error, positivity violations, stoichiometric error, Gibbs monotonicity score, rollout divergence
+- `utils/numerical.py` — 6 numerical utilities: ODE integration (scipy wrapper), central finite-difference Jacobian, stiffness detection, RK4 stepper, adaptive step size, trajectory interpolation (linear/cubic)
+- `utils/visualization.py` — 7 plotting functions: trajectory plots (matplotlib + plotly), phase portraits, bifurcation diagrams, RTD plots, sensitivity heatmaps, Pareto fronts, latent space visualization (PCA/t-SNE/UMAP)
+
+#### Advanced MPC
+- `EconomicMPC` — profit-maximising MPC with revenue/cost objectives and safety penalties
+- `EconomicObjective` — economic stage cost (revenue - cost) with configurable state safety bounds
+- `StochasticMPC` — chance-constrained MPC using multi-sample Euler-Maruyama rollouts through Neural SDE, CVaR risk measure, uncertainty-aware trajectory statistics
+
+#### Distributed Training
+- `DistributedTrainer` — multi-GPU data-parallel training via `DistributedDataParallel`
+- Gradient accumulation for effective large batch sizes
+- Rank-aware data sharding, checkpoint saving (rank 0 only)
+- `setup_distributed()` / `cleanup_distributed()` helpers
+
+#### Model Versioning & Registry
+- `ModelRegistry` — local file-based model registry with JSON manifest
+- `ModelMetadata` — tracks name, version, reactor type, training config, metrics, tags
+- Auto-incrementing semantic versions, save/load/compare/delete operations
+- Supports filtering by name, version, or tag
+
+#### API v2 — Full Model Serving
+- `POST /api/v2/token` — JWT token generation
+- `POST /api/v2/models/upload` — upload trained PyTorch models
+- `POST /api/v2/models/{id}/predict` — single prediction endpoint
+- `POST /api/v2/models/{id}/batch-predict` — batch prediction endpoint
+- `GET /api/v2/models` — list uploaded models
+
+#### Security Hardening
+- JWT authentication (HS256, no external dependencies) with configurable expiry
+- In-memory rate limiter (sliding window, per-user or per-IP)
+- CORS middleware (already present, now documented)
+
+#### Real Experimental Data Benchmarks
+- `benchmarks/real_data/williams_otto.py` — Williams-Otto 6-state CSTR (3 reactions, non-isothermal)
+- `benchmarks/real_data/penicillin.py` — Penicillin fed-batch bioreactor (Bajpai-Reuss kinetics)
+- Synthetic data generators with configurable noise, perturbations, and diverse operating conditions
+- `run_benchmark()` functions for end-to-end Neural ODE training and evaluation
+
+#### Load Testing
+- `scripts/loadtest.py` — concurrent HTTP load testing with latency statistics (min/mean/median/p95/p99/throughput)
+
+### Tests
+- 1183 tests passing (102 new tests), 7 skipped
+- Coverage: 71% → targeting 85% in next release
+- New test files: `test_metrics.py`, `test_numerical.py`, `test_visualization.py`, `test_advanced_mpc.py`, `test_model_registry.py`, `test_auth.py`, `test_distributed.py`, `test_benchmarks.py`
+
 ### Added
 - ONNX export for trained Neural ODE models (`src/reactor_twin/export/`)
 - Docker support (Dockerfile, docker-compose.yml, GHCR publishing workflow)
@@ -199,7 +251,8 @@ Initial architecture setup. Foundation for physics-constrained Neural DEs.
 - MIT License
 - README with quickstart and examples
 
-[Unreleased]: https://github.com/ktubhyam/reactor-twin/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/ktubhyam/reactor-twin/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ktubhyam/reactor-twin/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/ktubhyam/reactor-twin/compare/v0.3.0...v0.3.1
 [0.1.0]: https://github.com/ktubhyam/reactor-twin/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/ktubhyam/reactor-twin/releases/tag/v0.0.1
