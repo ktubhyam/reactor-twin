@@ -45,7 +45,7 @@ thermo = ["cantera", "coolprop"]
 analysis = ["SALib>=1.4"]
 discovery = ["pysr>=0.18"]
 tracking = ["wandb"]
-deploy = ["onnx", "onnxruntime"]
+deploy = ["onnx", "onnxruntime", "onnxscript"]
 docs = [
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.24",
