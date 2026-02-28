@@ -98,11 +98,13 @@ class MichaelisMentenKinetics(AbstractKinetics):
             rate = (self.V_max[j] * S) / (self.K_m[j] + S)
 
             # Apply competitive inhibition if present
+            # Competitive: K_m_app = K_m * (1 + [I]/K_i), so
+            # r = V_max * [S] / (K_m_app + [S])
             if self.inhibitor_indices is not None and self.K_i[j] > 0:
                 I_idx = self.inhibitor_indices[j]
                 inhibitor_conc = concentrations[I_idx]
-                inhibition_factor = 1 + inhibitor_conc / self.K_i[j]
-                rate = rate / inhibition_factor
+                K_m_app = self.K_m[j] * (1 + inhibitor_conc / self.K_i[j])
+                rate = (self.V_max[j] * S) / (K_m_app + S)
 
             reaction_rates[j] = rate
 

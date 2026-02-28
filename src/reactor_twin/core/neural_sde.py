@@ -280,7 +280,7 @@ class NeuralSDE(AbstractNeuralDE):
         # variance_loss = predictions.var(dim=0).mean()
 
         return {
-            "total": data_loss,
+            "total": loss_weights.get("data", 1.0) * data_loss,
             "data": data_loss,
         }
 

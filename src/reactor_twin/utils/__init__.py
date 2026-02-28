@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from reactor_twin.utils.constants import R_GAS
+from reactor_twin.utils.logging import JSONFormatter, RequestTracer, setup_logging
 from reactor_twin.utils.registry import (
     CONSTRAINT_REGISTRY,
     DIGITAL_TWIN_REGISTRY,
@@ -13,6 +14,7 @@ from reactor_twin.utils.registry import (
     SOLVER_REGISTRY,
     Registry,
 )
+from reactor_twin.utils.sensitivity import SensitivityAnalyzer
 
 __all__ = [
     "Registry",
@@ -24,4 +26,8 @@ __all__ = [
     "ODE_FUNC_REGISTRY",
     "DIGITAL_TWIN_REGISTRY",
     "R_GAS",
+    "SensitivityAnalyzer",
+    "JSONFormatter",
+    "RequestTracer",
+    "setup_logging",
 ]

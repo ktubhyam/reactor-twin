@@ -175,7 +175,7 @@ class AbstractNeuralDE(nn.Module, ABC):
         Returns:
             Loaded model instance.
         """
-        checkpoint = torch.load(path, map_location="cpu")
+        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
         model = cls(
             state_dim=checkpoint["state_dim"],
             input_dim=checkpoint["input_dim"],

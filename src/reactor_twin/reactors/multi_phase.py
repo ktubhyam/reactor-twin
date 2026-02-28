@@ -66,12 +66,7 @@ class MultiPhaseReactor(AbstractReactor):
         self.kinetics = kinetics
         self.isothermal = isothermal
 
-        # Pre-compute before super().__init__ calls _compute_state_dim
-        gas_indices = params.get("gas_species_indices", [])
-        self.num_gas_species = len(gas_indices)
-
-        super().__init__(name, num_species, params)
-
+        # Validate required params BEFORE super().__init__()
         required = [
             "V_L",
             "V_G",
@@ -94,6 +89,12 @@ class MultiPhaseReactor(AbstractReactor):
                     raise ConfigurationError(
                         f"Non-isothermal multi-phase reactor requires parameter: {key}"
                     )
+
+        # Pre-compute before super().__init__ calls _compute_state_dim
+        gas_indices = params.get("gas_species_indices", [])
+        self.num_gas_species = len(gas_indices)
+
+        super().__init__(name, num_species, params)
 
     def _compute_state_dim(self) -> int:
         dim = self.num_species + self.num_gas_species

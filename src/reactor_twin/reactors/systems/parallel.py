@@ -123,7 +123,7 @@ def create_parallel_cstr(
             {
                 "rho": 800.0,  # kg/m³ (organic liquid)
                 "Cp": 2000.0,  # J/(kg*K)
-                "delta_H": np.array([-35000.0, -50000.0]),  # J/mol (both exothermic)
+                "dH_rxn": np.array([-35000.0, -50000.0]),  # J/mol (both exothermic)
             }
         )
 

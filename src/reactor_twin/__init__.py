@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 # Version info
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __author__ = "Tubhyam Karthikeyan"
 __email__ = "takarthikeyan25@gmail.com"
 
 # Core imports
 from reactor_twin.core import AbstractNeuralDE, NeuralODE
+from reactor_twin.core.bayesian_neural_ode import (
+    BayesianLinear,
+    BayesianMLPODEFunc,
+    BayesianNeuralODE,
+)
+from reactor_twin.core.hybrid_model import HybridNeuralODE, ReactorPhysicsFunc
 from reactor_twin.digital_twin import (
     EKFStateEstimator,
     FaultDetector,
@@ -40,6 +46,8 @@ from reactor_twin.reactors import (
     AbstractReactor,
     BatchReactor,
     CSTRReactor,
+    FluidizedBedReactor,
+    MembraneReactor,
     MultiPhaseReactor,
     PlugFlowReactor,
     PopulationBalanceReactor,
@@ -50,6 +58,7 @@ from reactor_twin.reactors.kinetics import (
     ArrheniusKinetics,
     LangmuirHinshelwoodKinetics,
     MichaelisMentenKinetics,
+    MonodKinetics,
     PowerLawKinetics,
     ReversibleKinetics,
 )
@@ -61,6 +70,11 @@ from reactor_twin.reactors.systems import (
     create_van_de_vusse_cstr,
 )
 from reactor_twin.training import MultiObjectiveLoss, ReactorDataGenerator, Trainer
+from reactor_twin.training.foundation import (
+    FoundationNeuralODE,
+    FoundationTrainer,
+    ReactorTaskEncoder,
+)
 from reactor_twin.utils import (
     CONSTRAINT_REGISTRY,
     DIGITAL_TWIN_REGISTRY,
@@ -69,6 +83,8 @@ from reactor_twin.utils import (
     REACTOR_REGISTRY,
     Registry,
 )
+from reactor_twin.utils.logging import JSONFormatter, RequestTracer, setup_logging
+from reactor_twin.utils.sensitivity import SensitivityAnalyzer
 
 __all__ = [
     # Version
@@ -84,10 +100,17 @@ __all__ = [
     # Core Neural DEs
     "AbstractNeuralDE",
     "NeuralODE",
+    "BayesianNeuralODE",
+    "BayesianLinear",
+    "BayesianMLPODEFunc",
+    "HybridNeuralODE",
+    "ReactorPhysicsFunc",
     # Reactors
     "AbstractReactor",
     "BatchReactor",
     "CSTRReactor",
+    "FluidizedBedReactor",
+    "MembraneReactor",
     "MultiPhaseReactor",
     "PlugFlowReactor",
     "PopulationBalanceReactor",
@@ -103,6 +126,7 @@ __all__ = [
     "ArrheniusKinetics",
     "LangmuirHinshelwoodKinetics",
     "MichaelisMentenKinetics",
+    "MonodKinetics",
     "PowerLawKinetics",
     "ReversibleKinetics",
     # Physics Constraints
@@ -119,6 +143,10 @@ __all__ = [
     "Trainer",
     "MultiObjectiveLoss",
     "ReactorDataGenerator",
+    # Foundation Model
+    "FoundationNeuralODE",
+    "FoundationTrainer",
+    "ReactorTaskEncoder",
     # Digital Twin
     "EKFStateEstimator",
     "FaultDetector",
@@ -132,4 +160,10 @@ __all__ = [
     "CONSTRAINT_REGISTRY",
     "NEURAL_DE_REGISTRY",
     "DIGITAL_TWIN_REGISTRY",
+    # Logging
+    "JSONFormatter",
+    "RequestTracer",
+    "setup_logging",
+    # Sensitivity Analysis
+    "SensitivityAnalyzer",
 ]

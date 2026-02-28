@@ -34,9 +34,7 @@ def simple_model():
     so we create a model with input_dim=0 to avoid dimension mismatches.
     """
     torch.manual_seed(42)
-    ode_func = MLPODEFunc(
-        state_dim=STATE_DIM, hidden_dim=16, num_layers=2, input_dim=0
-    )
+    ode_func = MLPODEFunc(state_dim=STATE_DIM, hidden_dim=16, num_layers=2, input_dim=0)
     model = NeuralODE(
         state_dim=STATE_DIM,
         ode_func=ode_func,
@@ -53,9 +51,7 @@ def simple_model():
 def simple_model_with_ctrl():
     """Create a NeuralODE model with control inputs for MPC tests."""
     torch.manual_seed(42)
-    ode_func = MLPODEFunc(
-        state_dim=STATE_DIM, hidden_dim=16, num_layers=2, input_dim=INPUT_DIM
-    )
+    ode_func = MLPODEFunc(state_dim=STATE_DIM, hidden_dim=16, num_layers=2, input_dim=INPUT_DIM)
     model = NeuralODE(
         state_dim=STATE_DIM,
         ode_func=ode_func,
@@ -87,14 +83,19 @@ def model_2d():
     """Small 2-D NeuralODE for fast meta-learning tests."""
     torch.manual_seed(0)
     return NeuralODE(
-        state_dim=2, input_dim=0, adjoint=False, solver="euler",
-        hidden_dim=16, num_layers=2,
+        state_dim=2,
+        input_dim=0,
+        adjoint=False,
+        solver="euler",
+        hidden_dim=16,
+        num_layers=2,
     )
 
 
 # ---------------------------------------------------------------------------
 # EKFStateEstimator Tests
 # ---------------------------------------------------------------------------
+
 
 class TestEKFStateEstimator:
     """Tests for the Extended Kalman Filter state estimator."""
@@ -213,6 +214,7 @@ class TestEKFStateEstimator:
 # SPCChart Tests
 # ---------------------------------------------------------------------------
 
+
 class TestSPCChart:
     """Tests for the Statistical Process Control chart."""
 
@@ -239,14 +241,16 @@ class TestSPCChart:
 
     def test_update_no_alarm_for_normal_data(self, spc):
         """Normal data should not trigger alarms."""
+        np.random.seed(42)
         data = np.random.randn(200, 3) * 0.1 + 5.0
         spc.set_baseline(data)
         x = np.array([5.0, 5.0, 5.0])
         result = spc.update(x)
-        assert not np.all(result["ewma_alarm"])
+        assert not np.any(result["ewma_alarm"])
 
     def test_update_alarm_for_large_deviation(self, spc):
         """Large deviation from baseline should trigger alarm."""
+        np.random.seed(42)
         data = np.random.randn(200, 3) * 0.1 + 5.0
         spc.set_baseline(data)
         for _ in range(20):
@@ -267,6 +271,7 @@ class TestSPCChart:
 # ---------------------------------------------------------------------------
 # FaultDetector Tests
 # ---------------------------------------------------------------------------
+
 
 class TestFaultDetector:
     """Tests for the unified fault detector."""
@@ -316,6 +321,7 @@ class TestFaultDetector:
 # ---------------------------------------------------------------------------
 # MPCController Tests
 # ---------------------------------------------------------------------------
+
 
 class TestMPCController:
     """Tests for the Model Predictive Controller."""
@@ -388,8 +394,11 @@ class TestMPCController:
             u_max=torch.tensor([1.0]),
         )
         mpc = MPCController(
-            model_with_ctrl, horizon=3, dt=0.01,
-            constraints=constraints, max_iter=3,
+            model_with_ctrl,
+            horizon=3,
+            dt=0.01,
+            constraints=constraints,
+            max_iter=3,
         )
         u, info = mpc.step(torch.randn(3), torch.zeros(3))
         assert u.item() >= -1.0
@@ -399,6 +408,7 @@ class TestMPCController:
 # ---------------------------------------------------------------------------
 # MPCObjective Tests
 # ---------------------------------------------------------------------------
+
 
 class TestMPCObjective:
     """Tests for MPC objective function."""
@@ -444,6 +454,7 @@ class TestMPCObjective:
 # ---------------------------------------------------------------------------
 # ControlConstraints Tests
 # ---------------------------------------------------------------------------
+
 
 class TestControlConstraints:
     """Tests for control constraint handling."""

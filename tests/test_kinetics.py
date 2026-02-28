@@ -46,14 +46,18 @@ def arrhenius_two_reactions():
         params={
             "k0": np.array([1e8, 5e7]),
             "Ea": np.array([40000.0, 60000.0]),
-            "stoich": np.array([
-                [-1, 1, 0],  # A -> B
-                [0, -1, 1],  # B -> C
-            ]),
-            "orders": np.array([
-                [1, 0, 0],  # first order in A
-                [0, 1, 0],  # first order in B
-            ]),
+            "stoich": np.array(
+                [
+                    [-1, 1, 0],  # A -> B
+                    [0, -1, 1],  # B -> C
+                ]
+            ),
+            "orders": np.array(
+                [
+                    [1, 0, 0],  # first order in A
+                    [0, 1, 0],  # first order in B
+                ]
+            ),
         },
     )
 
@@ -513,15 +517,11 @@ class TestMichaelisMentenKinetics:
         I_conc = 2.0
         C = np.array([S, 0.0, I_conc])
         # V_max=10, K_m=0.5, K_i=1.0
-        # Standard rate: V_max*S/(K_m+S) = 10*1/(0.5+1) = 6.667
-        # Inhibition factor: 1 + I/K_i = 1 + 2/1 = 3
-        # The code applies: rate / inhibition_factor
-        # rate = V_max*S/(K_m+S) = 10*1/1.5 = 6.667
-        # rate / 3 = 2.222
+        # Competitive inhibition: K_m_app = K_m * (1 + I/K_i) = 0.5 * (1 + 2/1) = 1.5
+        # rate = V_max * S / (K_m_app + S) = 10 * 1 / (1.5 + 1) = 4.0
         rates = mm_with_inhibition.compute_rates(C, 310.0)
-        standard_rate = 10.0 * S / (0.5 + S)
-        inhibition_factor = 1 + I_conc / 1.0
-        expected = standard_rate / inhibition_factor
+        K_m_app = 0.5 * (1 + I_conc / 1.0)
+        expected = 10.0 * S / (K_m_app + S)
         np.testing.assert_allclose(rates[1], expected, rtol=1e-10)
 
     # -- validate_parameters --
@@ -630,7 +630,7 @@ class TestPowerLawKinetics:
         C = np.array([C_A, 0.0])
         T = 380.0
         k_T = 1e8 * np.exp(-40000.0 / (R_GAS * T))
-        expected_r = k_T * C_A ** 1.0  # order=1
+        expected_r = k_T * C_A**1.0  # order=1
         rates = power_law_with_temperature.compute_rates(C, T)
         np.testing.assert_allclose(rates[1], expected_r, rtol=1e-10)
 
@@ -717,7 +717,7 @@ class TestLangmuirHinshelwoodKinetics:
         C = np.array([C_A, 0.0])
         T = 350.0
         # k=5, K_ads_A=2, orders_num_A=1, orders_den=1
-        numerator = 5.0 * C_A ** 1.0
+        numerator = 5.0 * C_A**1.0
         denominator = (1.0 + 2.0 * C_A) ** 1.0
         expected_r = numerator / denominator
         rates = lh_kinetics.compute_rates(C, T)
@@ -740,7 +740,7 @@ class TestLangmuirHinshelwoodKinetics:
         C = np.array([1.0, 1.0])
         T = 350.0
         # k=5, K_ads=[[2,1]], orders_num=[[1,1]], orders_den=[2]
-        numerator = 5.0 * (1.0 ** 1.0) * (1.0 ** 1.0)
+        numerator = 5.0 * (1.0**1.0) * (1.0**1.0)
         denominator = (1.0 + 2.0 * 1.0 + 1.0 * 1.0) ** 2.0
         expected_r = numerator / denominator
         rates = lh_kinetics_dual_site.compute_rates(C, T)
@@ -895,9 +895,7 @@ class TestReversibleKinetics:
         K_eq = reversible_keq.get_equilibrium_constant(350.0)
         np.testing.assert_allclose(K_eq, [2.0], rtol=1e-6)
 
-    def test_get_equilibrium_constant_temperature_dependent(
-        self, reversible_with_temperature
-    ):
+    def test_get_equilibrium_constant_temperature_dependent(self, reversible_with_temperature):
         """K_eq(T) = k_f(T)/k_r(T) should vary with temperature."""
         K_300 = reversible_with_temperature.get_equilibrium_constant(300.0)
         K_400 = reversible_with_temperature.get_equilibrium_constant(400.0)
@@ -1021,19 +1019,21 @@ class TestMonodKinetics:
 
     def test_rate_formulas(self, monod_kinetics):
         """Verify:
-            mu = mu_max * S / (K_s + S)
-            dS/dt = -mu * X / Y_xs
-            dX/dt = mu * X
-            dP/dt = q_p * X
+        mu = mu_max * S / (K_s + S)
+        dS/dt = -mu * X / Y_xs
+        dX/dt = mu * X
+        dP/dt = q_p * X
         """
         S, X, P = 5.0, 2.0, 0.5
         C = np.array([S, X, P])
         mu = 0.5 * S / (0.1 + S)
-        expected = np.array([
-            -mu * X / 0.5,  # dS/dt
-            mu * X,         # dX/dt
-            0.2 * X,        # dP/dt
-        ])
+        expected = np.array(
+            [
+                -mu * X / 0.5,  # dS/dt
+                mu * X,  # dX/dt
+                0.2 * X,  # dP/dt
+            ]
+        )
         rates = monod_kinetics.compute_rates(C, 310.0)
         np.testing.assert_allclose(rates, expected, rtol=1e-10)
 

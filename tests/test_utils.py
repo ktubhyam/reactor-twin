@@ -19,6 +19,7 @@ from reactor_twin.utils import (
 # Registry Tests
 # ---------------------------------------------------------------------------
 
+
 class TestRegistry:
     """Tests for the plugin registry system."""
 
@@ -107,6 +108,7 @@ class TestRegistry:
 # Constants Tests
 # ---------------------------------------------------------------------------
 
+
 class TestConstants:
     """Tests for physical constants."""
 
@@ -121,6 +123,7 @@ class TestConstants:
 # ---------------------------------------------------------------------------
 # Global Registry Tests
 # ---------------------------------------------------------------------------
+
 
 class TestGlobalRegistries:
     """Tests that global registries contain expected entries after imports."""
@@ -167,12 +170,38 @@ class TestGlobalRegistries:
     def test_neural_de_registry_has_augmented(self):
         assert "augmented_neural_ode" in NEURAL_DE_REGISTRY
 
+    def test_neural_de_registry_has_bayesian(self):
+        assert "bayesian_neural_ode" in NEURAL_DE_REGISTRY
+
+    def test_neural_de_registry_has_hybrid(self):
+        assert "hybrid_neural_ode" in NEURAL_DE_REGISTRY
+
+    def test_neural_de_registry_has_foundation(self):
+        assert "foundation_neural_ode" in NEURAL_DE_REGISTRY
+
+    def test_neural_de_registry_has_latent(self):
+        assert "latent_neural_ode" in NEURAL_DE_REGISTRY
+
+    def test_neural_de_registry_has_sde(self):
+        assert "neural_sde" in NEURAL_DE_REGISTRY
+
+    def test_neural_de_registry_has_cde(self):
+        assert "neural_cde" in NEURAL_DE_REGISTRY
+
+    def test_reactor_registry_has_membrane(self):
+        assert "membrane" in REACTOR_REGISTRY
+
+    def test_reactor_registry_has_fluidized_bed(self):
+        assert "fluidized_bed" in REACTOR_REGISTRY
+
     def test_reactor_registry_get_cstr_returns_class(self):
         from reactor_twin.reactors import CSTRReactor
+
         cls = REACTOR_REGISTRY.get("cstr")
         assert cls is CSTRReactor
 
     def test_kinetics_registry_get_arrhenius_returns_class(self):
         from reactor_twin.reactors.kinetics import ArrheniusKinetics
+
         cls = KINETICS_REGISTRY.get("arrhenius")
         assert cls is ArrheniusKinetics

@@ -120,9 +120,11 @@ class ReactorDataGenerator:
                 - 't_span': Time points, shape (num_times,) (torch.Tensor)
                 - 'targets': Trajectories, shape (batch_size, num_times, state_dim) (torch.Tensor)
         """
+        # Always compute default IC for retry fallback
+        y0_default = self.reactor.get_initial_state()
+
         # Generate initial conditions if not provided
         if initial_conditions is None:
-            y0_default = self.reactor.get_initial_state()
             # Perturb default IC with small noise
             initial_conditions = np.tile(y0_default, (batch_size, 1))
             noise = np.random.randn(batch_size, len(y0_default)) * 0.1

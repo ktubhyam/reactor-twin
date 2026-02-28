@@ -23,6 +23,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Notebook execution added to CI pipeline
 - Codecov enforcement — CI fails if coverage drops below 85%
 
+## [0.3.1] - 2026-02-28
+
+### Critical Fixes
+- **Fluidized Bed Reactor**: Fixed bubble-phase reaction rates using wrong concentrations (`C_e` instead of `C_b`)
+- **Fluidized Bed Reactor**: Validation now runs before `super().__init__()` to prevent partially constructed objects; caller's params dict no longer mutated
+- **Fluidized Bed Reactor**: Added real energy balance with convection + heat of reaction (was returning `dT/dt=0`)
+- **Fluidized Bed Reactor**: Clamped phase volumes to avoid division-by-zero in edge cases
+- **Membrane Reactor**: Validation order fixed (before `super().__init__()`); params dict no longer mutated
+- **Hybrid Model**: Replaced broken `ReactorPhysicsFunc.__new__` hack with proper `_ZeroPhysicsFunc` for `reactor=None`
+- **Foundation Model**: Wired task embeddings into training loops (were dead code); fixed device mismatch in Reptile update
+- **Michaelis-Menten Kinetics**: Fixed competitive inhibition formula from `V_max*S/((K_m+S)*(1+I/K_i))` to correct `V_max*S/(K_m*(1+I/K_i)+S)`
+- **Benchmark Systems**: Fixed `delta_H` to `dH_rxn` parameter key in `consecutive.py` and `parallel.py` — non-isothermal simulations were silently ignoring heat of reaction
+- **MultiPhase Reactor**: Moved required parameter validation before `super().__init__()`
+
+### High-Severity Fixes
+- **Bayesian Neural ODE**: Fixed ELBO loss to compute per-sample loss then average
+- **Bayesian Neural ODE**: `predict_with_uncertainty` restores training mode; added `prior_sigma > 0` validation; clamped `log_sigma`
+- **Hybrid Model**: Central finite differences for Jacobian; physics regularization across trajectory; training mode restoration
+- **Sensitivity Analysis**: `copy.deepcopy` for params; NaN median imputation; `output_index` bounds validation
+- **NeuralSDE**: `compute_loss` now applies `loss_weights` to total (was ignoring weights)
+- **torch.load**: Added `weights_only=False` to suppress PyTorch deprecation warnings
+- **Data Generator**: Fixed `UnboundLocalError` for `y0_default` when custom initial conditions provided
+
+### Medium-Severity Fixes
+- **Membrane Reactor**: Added validation for Q length, species index bounds, and C_ret_feed length; clamped permeation concentrations
+- **Fluidized Bed Reactor**: Added validation for `d_b > 0`, `0 < epsilon_mf < 1`, `K_be >= 0`
+- **Symbolic Regression**: Added `.cpu()` before `.numpy()`; fixed `torch.tensor` deprecation
+- **Logging**: Renamed `format` to `log_format` to avoid shadowing Python builtin
+
+### Improvements
+- Added `MonodKinetics` and `SensitivityAnalyzer` to top-level exports
+- Added `discovery`, `tracking`, `deploy`, `thermo` to `[all]` extras group
+- Added `validate_state()` to Fluidized Bed and Membrane reactors
+
+### Tests
+- 1081 tests passing, 69% coverage
+- 40+ new tests with hand-calculated expected values
+- Fixed SPC alarm assertion (`not np.all` to `not np.any`)
+- Added random seed fixtures for deterministic SPC tests
+- Updated Michaelis-Menten inhibition test for correct formula
+
 ## [0.1.0] - 2026-02-28
 
 ### Added (Phase 6 -- Polish & Release)
@@ -158,6 +199,7 @@ Initial architecture setup. Foundation for physics-constrained Neural DEs.
 - MIT License
 - README with quickstart and examples
 
-[Unreleased]: https://github.com/ktubhyam/reactor-twin/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ktubhyam/reactor-twin/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/ktubhyam/reactor-twin/compare/v0.3.0...v0.3.1
 [0.1.0]: https://github.com/ktubhyam/reactor-twin/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/ktubhyam/reactor-twin/releases/tag/v0.0.1

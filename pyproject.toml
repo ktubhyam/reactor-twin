@@ -1,6 +1,6 @@
 [project]
 name = "reactor-twin"
-version = "0.2.0"
+version = "0.3.1"
 description = "Physics-constrained Neural DEs for chemical reactor digital twins"
 authors = [{name = "Tubhyam Karthikeyan", email = "takarthikeyan25@gmail.com"}]
 requires-python = ">=3.10"
@@ -31,6 +31,7 @@ dependencies = [
     "plotly>=5.18",
     "matplotlib>=3.8",
     "pydantic>=2.5",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -42,6 +43,7 @@ cde = ["torchcde>=0.2.5"]
 fast = ["torchode>=0.2.0"]
 thermo = ["cantera", "coolprop"]
 analysis = ["SALib>=1.4"]
+discovery = ["pysr>=0.18"]
 tracking = ["wandb"]
 deploy = ["onnx", "onnxruntime"]
 docs = [
@@ -56,7 +58,7 @@ dev = [
     "mypy>=1.7",
     "pre-commit>=3.6",
 ]
-all = ["reactor-twin[dashboard,digital_twin,api,sde,cde,fast,analysis,docs,dev]"]
+all = ["reactor-twin[dashboard,digital_twin,api,sde,cde,fast,analysis,discovery,tracking,deploy,thermo,docs,dev]"]
 
 [project.scripts]
 reactor-twin-dashboard = "reactor_twin.dashboard.app:main"
@@ -93,7 +95,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
-"tests/*" = ["PLR2004", "SIM300"]
+"tests/*" = ["PLR2004", "SIM300", "E402"]
 "src/reactor_twin/api/*" = ["E402"]
 "src/reactor_twin/dashboard/*" = ["E402", "SIM102"]
 "examples/*" = ["PLR0915", "B007"]

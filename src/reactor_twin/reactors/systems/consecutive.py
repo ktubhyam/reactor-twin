@@ -113,7 +113,7 @@ def create_consecutive_cstr(
             {
                 "rho": 800.0,  # kg/m³ (organic liquid)
                 "Cp": 2000.0,  # J/(kg*K)
-                "delta_H": np.array([-30000.0, -40000.0]),  # J/mol (both exothermic)
+                "dH_rxn": np.array([-30000.0, -40000.0]),  # J/mol (both exothermic)
             }
         )
 
