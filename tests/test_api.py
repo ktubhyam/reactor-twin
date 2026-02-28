@@ -634,3 +634,20 @@ class TestWebSocketGeneralException:
             msg = ws.receive_json()
             assert "error" in msg
             assert "unexpected math error" in msg["error"]
+
+
+# ── Prometheus /metrics ──────────────────────────────────────────────
+
+
+class TestMetricsEndpoint:
+    """Tests for GET /metrics Prometheus endpoint."""
+
+    def test_metrics_endpoint_available(self, client: TestClient) -> None:
+        pytest.importorskip("prometheus_client")
+        response = client.get("/metrics")
+        assert response.status_code == 200
+
+    def test_metrics_content_type_text(self, client: TestClient) -> None:
+        pytest.importorskip("prometheus_client")
+        response = client.get("/metrics")
+        assert "text/plain" in response.headers.get("content-type", "")

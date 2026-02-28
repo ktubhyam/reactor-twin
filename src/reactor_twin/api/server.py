@@ -21,6 +21,7 @@ except ImportError as exc:
 
 import numpy as np
 
+from reactor_twin.api.metrics import make_metrics_app
 from reactor_twin.reactors.systems import (
     create_exothermic_cstr,
     create_van_de_vusse_cstr,
@@ -62,6 +63,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+_metrics_app = make_metrics_app()
+if _metrics_app is not None:
+    app.mount("/metrics", _metrics_app)
 
 # Pre-built reactor benchmarks
 BENCHMARKS = {
