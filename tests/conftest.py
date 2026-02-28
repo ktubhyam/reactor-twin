@@ -7,6 +7,19 @@ import pytest
 import torch
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _warmup_torch_dynamo():
+    """Pre-pay the one-time PyTorch dynamo import cost (~4s).
+
+    The first call to torch.optim.Adam triggers a lazy import chain
+    (torch._dynamo, torch._functorch, etc.). Running it once at session
+    start prevents this cost from inflating any individual test's duration.
+    """
+    _dummy = torch.nn.Linear(1, 1)
+    _opt = torch.optim.Adam(_dummy.parameters(), lr=1e-3)
+    del _opt, _dummy
+
+
 @pytest.fixture
 def device() -> torch.device:
     """Get compute device (CPU or CUDA)."""

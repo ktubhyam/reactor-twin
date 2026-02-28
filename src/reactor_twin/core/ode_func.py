@@ -111,27 +111,34 @@ class MLPODEFunc(AbstractODEFunc):
 
         Args:
             t: Time, shape () or (batch,).
-            z: State, shape (batch, state_dim).
+            z: State, shape (batch, state_dim) or (state_dim,).
             u: Control, shape (batch, input_dim).
 
         Returns:
-            dz/dt, shape (batch, state_dim).
+            dz/dt, shape (batch, state_dim) or (state_dim,).
         """
+        # Handle unbatched input
+        squeezed = z.ndim == 1
+        if squeezed:
+            z = z.unsqueeze(0)
+            if u is not None:
+                u = u.unsqueeze(0)
+
         batch_size = z.shape[0]
+        input_size = self.state_dim + self.input_dim + 1
 
-        # Expand time to batch
+        # Pre-allocate buffer and fill in-place to avoid torch.cat overhead
+        x = z.new_empty(batch_size, input_size)
+        x[:, : self.state_dim] = z
         if t.ndim == 0:
-            t = t.expand(batch_size, 1)
+            x[:, self.state_dim] = t
         else:
-            t = t.reshape(batch_size, 1)
-
-        # Concatenate inputs
-        inputs = [z, t]
+            x[:, self.state_dim] = t.reshape(batch_size)
         if u is not None:
-            inputs.append(u)
-        x = torch.cat(inputs, dim=-1)
+            x[:, self.state_dim + 1 :] = u
 
-        return self.net(x)
+        out = self.net(x)
+        return out.squeeze(0) if squeezed else out
 
 
 class ResNetODEFunc(AbstractODEFunc):
