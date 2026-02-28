@@ -117,7 +117,7 @@ class DistributedTrainer:
 
         # Wrap in DDP
         if world_size > 1 and torch.cuda.is_available():
-            self.model = nn.parallel.DistributedDataParallel(
+            self.model: AbstractNeuralDE = nn.parallel.DistributedDataParallel(  # type: ignore[assignment]
                 model,
                 device_ids=[self.device.index],
                 output_device=self.device.index,
@@ -128,6 +128,7 @@ class DistributedTrainer:
 
         self.data_generator = data_generator
 
+        self.optimizer: torch.optim.Optimizer
         if optimizer is None:
             self.optimizer = optim.Adam(self.model.parameters(), lr=1e-3)
         else:

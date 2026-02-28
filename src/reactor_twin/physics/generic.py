@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 import torch
 from torch import nn
@@ -164,7 +165,7 @@ class GENERICConstraint(AbstractConstraint):
         else:
             # Quadratic: E(z) = 0.5 * z^T z
             E = 0.5 * torch.sum(z**2, dim=-1)
-        return E
+        return cast(torch.Tensor, E)
 
     def compute_entropy(self, z: torch.Tensor) -> torch.Tensor:
         """Compute entropy S(z).
@@ -181,7 +182,7 @@ class GENERICConstraint(AbstractConstraint):
             # Boltzmann-like: S(z) = -Σ(z_i ln z_i)
             z_safe = torch.clamp(torch.abs(z), min=1e-8)
             S = -torch.sum(z_safe * torch.log(z_safe), dim=-1)
-        return S
+        return cast(torch.Tensor, S)
 
     def compute_gradients(self, z: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute gradients ∇E(z) and ∇S(z).
@@ -277,7 +278,7 @@ class GENERICConstraint(AbstractConstraint):
 
         violation = violation + degeneracy_1 + degeneracy_2
 
-        return violation
+        return cast(torch.Tensor, violation)
 
 
 __all__ = ["GENERICConstraint"]

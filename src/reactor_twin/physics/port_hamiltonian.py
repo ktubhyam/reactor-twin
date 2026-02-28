@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 import torch
 from torch import nn
@@ -145,7 +146,7 @@ class PortHamiltonianConstraint(AbstractConstraint):
         else:
             # Quadratic: H(z) = 0.5 * z^T z
             H = 0.5 * torch.sum(z**2, dim=-1)  # (batch,)
-        return H
+        return cast(torch.Tensor, H)
 
     def compute_hamiltonian_gradient(self, z: torch.Tensor) -> torch.Tensor:
         """Compute gradient of Hamiltonian: ∇H(z).
@@ -226,7 +227,7 @@ class PortHamiltonianConstraint(AbstractConstraint):
         psd_violation = torch.relu(-min_eigenvalue)  # Penalize negative eigenvalues
         violation = violation + psd_violation
 
-        return violation
+        return cast(torch.Tensor, violation)
 
 
 __all__ = ["PortHamiltonianConstraint"]

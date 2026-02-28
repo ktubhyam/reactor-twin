@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import torch
 
@@ -311,7 +311,7 @@ class MPCController:
         final_cost = torch.tensor(0.0)
         converged = False
 
-        def closure() -> torch.Tensor:
+        def closure() -> float:
             nonlocal final_cost
             optimizer.zero_grad()
 
@@ -328,9 +328,9 @@ class MPCController:
                 for k in range(1, traj.shape[0]):
                     cost = cost + self.constraints.output_penalty(traj[k])
 
-            cost.backward()
+            cost.backward()  # type: ignore[no-untyped-call]
             final_cost = cost.detach()
-            return cost
+            return cast(float, cost)
 
         try:
             optimizer.step(closure)
@@ -555,7 +555,7 @@ class EconomicMPC:
         )
         final_cost = torch.tensor(0.0)
 
-        def closure() -> torch.Tensor:
+        def closure() -> float:
             nonlocal final_cost
             optimizer.zero_grad()
             u_clamped = u_seq
@@ -566,9 +566,9 @@ class EconomicMPC:
             if self.constraints is not None:
                 for k in range(1, traj.shape[0]):
                     cost = cost + self.constraints.output_penalty(traj[k])
-            cost.backward()
+            cost.backward()  # type: ignore[no-untyped-call]
             final_cost = cost.detach()
-            return cost
+            return cast(float, cost)
 
         converged = False
         try:
@@ -758,7 +758,7 @@ class StochasticMPC:
         )
         final_cost = torch.tensor(0.0)
 
-        def closure() -> torch.Tensor:
+        def closure() -> float:
             nonlocal final_cost
             optimizer.zero_grad()
 
@@ -789,9 +789,9 @@ class StochasticMPC:
                 for k in range(1, mean_traj.shape[0]):
                     cost = cost + self.constraints.output_penalty(mean_traj[k])
 
-            cost.backward()
+            cost.backward()  # type: ignore[no-untyped-call]
             final_cost = cost.detach()
-            return cost
+            return cast(float, cost)
 
         converged = False
         try:

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from prometheus_client import Counter, Gauge, Histogram
 
 try:
-    from prometheus_client import Counter, Gauge, Histogram, make_asgi_app  # type: ignore[assignment]
+    from prometheus_client import Counter, Gauge, Histogram, make_asgi_app
 
     PROMETHEUS_AVAILABLE = True
 except ImportError:

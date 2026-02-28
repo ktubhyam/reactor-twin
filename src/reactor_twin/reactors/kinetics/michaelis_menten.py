@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from reactor_twin.reactors.kinetics.base import AbstractKinetics
 from reactor_twin.utils.registry import KINETICS_REGISTRY
@@ -74,9 +75,9 @@ class MichaelisMentenKinetics(AbstractKinetics):
 
     def compute_rates(
         self,
-        concentrations: np.ndarray,
+        concentrations: npt.NDArray[Any],
         temperature: float,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Compute reaction rates using Michaelis-Menten law.
 
         Args:

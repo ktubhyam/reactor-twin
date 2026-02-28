@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from scipy.integrate import solve_ivp
 
@@ -51,10 +53,10 @@ class ReactorDataGenerator:
     def generate_trajectory(
         self,
         t_span: tuple[float, float],
-        t_eval: np.ndarray,
-        y0: np.ndarray | None = None,
-        controls: np.ndarray | None = None,
-    ) -> dict[str, np.ndarray]:
+        t_eval: npt.NDArray[Any],
+        y0: npt.NDArray[Any] | None = None,
+        controls: npt.NDArray[Any] | None = None,
+    ) -> dict[str, npt.NDArray[Any]]:
         """Generate single trajectory.
 
         Args:
@@ -73,7 +75,7 @@ class ReactorDataGenerator:
             y0 = self.reactor.get_initial_state()
 
         # Define ODE function wrapper for controls
-        def ode_func(t: float, y: np.ndarray) -> np.ndarray:
+        def ode_func(t: float, y: npt.NDArray[Any]) -> npt.NDArray[Any]:
             return self.reactor.ode_rhs(t, y, controls)
 
         # Integrate
@@ -100,9 +102,9 @@ class ReactorDataGenerator:
         self,
         batch_size: int,
         t_span: tuple[float, float],
-        t_eval: np.ndarray,
-        initial_conditions: np.ndarray | None = None,
-        controls: np.ndarray | None = None,
+        t_eval: npt.NDArray[Any],
+        initial_conditions: npt.NDArray[Any] | None = None,
+        controls: npt.NDArray[Any] | None = None,
     ) -> dict[str, torch.Tensor]:
         """Generate batch of trajectories.
 
@@ -166,7 +168,7 @@ class ReactorDataGenerator:
         self,
         num_trajectories: int,
         t_span: tuple[float, float],
-        t_eval: np.ndarray,
+        t_eval: npt.NDArray[Any],
         batch_size: int = 32,
     ) -> list[dict[str, torch.Tensor]]:
         """Generate full dataset as list of batches.

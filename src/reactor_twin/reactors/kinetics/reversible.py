@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 
 from reactor_twin.reactors.kinetics.base import AbstractKinetics
 from reactor_twin.utils.registry import KINETICS_REGISTRY
@@ -102,9 +103,9 @@ class ReversibleKinetics(AbstractKinetics):
 
     def compute_rates(
         self,
-        concentrations: np.ndarray,
+        concentrations: npt.NDArray[Any],
         temperature: float,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Compute reaction rates for reversible reactions.
 
         Args:
@@ -152,7 +153,7 @@ class ReversibleKinetics(AbstractKinetics):
         # Apply stoichiometry: net_rate_i = sum_j(nu_ij * r_j)
         net_rates = self.stoich.T @ reaction_rates
 
-        return net_rates
+        return cast(npt.NDArray[Any], net_rates)
 
     def validate_parameters(self) -> bool:
         """Validate kinetic parameters.
@@ -197,7 +198,7 @@ class ReversibleKinetics(AbstractKinetics):
 
         return True
 
-    def get_equilibrium_constant(self, temperature: float) -> np.ndarray:
+    def get_equilibrium_constant(self, temperature: float) -> npt.NDArray[Any]:
         """Get equilibrium constants at given temperature.
 
         Args:
@@ -216,11 +217,11 @@ class ReversibleKinetics(AbstractKinetics):
         ):
             k_f_T = self.A_f * np.exp(-self.E_a_f / (R_GAS * temperature))
             k_r_T = self.A_r * np.exp(-self.E_a_r / (R_GAS * temperature))
-            return k_f_T / k_r_T
+            return cast(npt.NDArray[Any], k_f_T / k_r_T)
         elif self.K_eq is not None:
             return self.K_eq
         else:
-            return self.k_f / self.k_r
+            return cast(npt.NDArray[Any], self.k_f / self.k_r)
 
     @classmethod
     def from_dict(cls, config: dict[str, Any]) -> ReversibleKinetics:

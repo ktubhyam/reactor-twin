@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 
 from reactor_twin.exceptions import ConfigurationError
 from reactor_twin.reactors.base import AbstractReactor
@@ -86,24 +87,24 @@ class PopulationBalanceReactor(AbstractReactor):
 
     def _supersaturation(self, C: float) -> float:
         C_sat = self.params["C_sat"]
-        return (C - C_sat) / C_sat
+        return cast(float, (C - C_sat) / C_sat)
 
     def _growth_rate(self, S: float) -> float:
         kg = self.params["kg"]
         g = self.params["g"]
-        return kg * max(S, 0.0) ** g
+        return cast(float, kg * max(S, 0.0) ** g)
 
     def _nucleation_rate(self, S: float) -> float:
         kb = self.params["kb"]
         b = self.params["b"]
-        return kb * max(S, 0.0) ** b
+        return cast(float, kb * max(S, 0.0) ** b)
 
     def ode_rhs(
         self,
         t: float,
-        y: np.ndarray,
-        u: np.ndarray | None = None,
-    ) -> np.ndarray:
+        y: npt.NDArray[Any],
+        u: npt.NDArray[Any] | None = None,
+    ) -> npt.NDArray[Any]:
         # Extract state
         C = y[0]
         mu = y[1 : 1 + self.num_moments]
@@ -137,7 +138,7 @@ class PopulationBalanceReactor(AbstractReactor):
 
         return np.concatenate(derivatives)
 
-    def get_initial_state(self) -> np.ndarray:
+    def get_initial_state(self) -> npt.NDArray[Any]:
         C0 = self.params.get("C_initial", self.params.get("C_sat", 1.0) * 1.5)
         mu0 = np.array(self.params.get("mu_initial", np.zeros(self.num_moments)))
         state = [np.array([C0]), mu0]
@@ -153,15 +154,15 @@ class PopulationBalanceReactor(AbstractReactor):
             labels.append("T")
         return labels
 
-    def mean_size(self, y: np.ndarray) -> float:
+    def mean_size(self, y: npt.NDArray[Any]) -> float:
         """Compute mean crystal size mu_1 / mu_0."""
         mu_0 = y[1]
         mu_1 = y[2] if self.num_moments >= 2 else 0.0
         if mu_0 <= 0:
             return 0.0
-        return mu_1 / mu_0
+        return cast(float, mu_1 / mu_0)
 
-    def coefficient_of_variation(self, y: np.ndarray) -> float:
+    def coefficient_of_variation(self, y: npt.NDArray[Any]) -> float:
         """Compute CV = sqrt(mu_2*mu_0/mu_1^2 - 1)."""
         if self.num_moments < 3:
             return 0.0

@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from reactor_twin.exceptions import ConfigurationError
 from reactor_twin.reactors.base import AbstractReactor
@@ -93,9 +94,9 @@ class PlugFlowReactor(AbstractReactor):
     def ode_rhs(
         self,
         t: float,
-        y: np.ndarray,
-        u: np.ndarray | None = None,
-    ) -> np.ndarray:
+        y: npt.NDArray[Any],
+        u: npt.NDArray[Any] | None = None,
+    ) -> npt.NDArray[Any]:
         """PFR ODE right-hand side (Method of Lines).
 
         Discretized advection-diffusion-reaction:
@@ -154,7 +155,7 @@ class PlugFlowReactor(AbstractReactor):
         # Flatten back to 1D
         return dC_dt.flatten()
 
-    def get_initial_state(self) -> np.ndarray:
+    def get_initial_state(self) -> npt.NDArray[Any]:
         """Get initial conditions.
 
         Returns:
@@ -179,7 +180,7 @@ class PlugFlowReactor(AbstractReactor):
                 labels.append(f"C_{i}_cell_{k}")
         return labels
 
-    def get_outlet_concentrations(self, y: np.ndarray) -> np.ndarray:
+    def get_outlet_concentrations(self, y: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Extract outlet concentrations (last cell).
 
         Args:
@@ -191,7 +192,7 @@ class PlugFlowReactor(AbstractReactor):
         C = y.reshape(self.num_species, self.num_cells)
         return C[:, -1]
 
-    def get_axial_profile(self, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def get_axial_profile(self, y: npt.NDArray[Any]) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Get axial concentration profiles.
 
         Args:

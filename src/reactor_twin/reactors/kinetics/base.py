@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +42,9 @@ class AbstractKinetics(ABC):
     @abstractmethod
     def compute_rates(
         self,
-        concentrations: np.ndarray,
+        concentrations: npt.NDArray[Any],
         temperature: float,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Compute reaction rates.
 
         Args:
@@ -57,9 +58,9 @@ class AbstractKinetics(ABC):
 
     def compute_reaction_rates(
         self,
-        concentrations: np.ndarray,
+        concentrations: npt.NDArray[Any],
         temperature: float,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Compute individual reaction rates (before stoichiometric mapping).
 
         Override in subclasses that distinguish between per-reaction rates

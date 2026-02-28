@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Any
+from typing import Any, cast
 
 import torch
 from torch import nn
@@ -154,7 +154,7 @@ class BayesianMLPODEFunc(AbstractODEFunc):
         if u is not None:
             inputs.append(u)
         x = torch.cat(inputs, dim=-1)
-        return self.net(x)
+        return cast(torch.Tensor, self.net(x))
 
     def kl_divergence(self) -> torch.Tensor:
         """Total KL divergence across all Bayesian layers."""
@@ -238,7 +238,7 @@ class BayesianNeuralODE(AbstractNeuralDE):
                 atol=self.atol,
                 method=self.solver,
             )
-            return z_traj.transpose(0, 1)  # (batch, time, state)
+            return cast(torch.Tensor, z_traj).transpose(0, 1)  # (batch, time, state)
 
         trajectories = []
         for _ in range(num_samples):
@@ -250,7 +250,7 @@ class BayesianNeuralODE(AbstractNeuralDE):
                 atol=self.atol,
                 method=self.solver,
             )
-            trajectories.append(z_traj.transpose(0, 1))
+            trajectories.append(cast(torch.Tensor, z_traj).transpose(0, 1))
 
         return torch.stack(trajectories, dim=0)  # (samples, batch, time, state)
 

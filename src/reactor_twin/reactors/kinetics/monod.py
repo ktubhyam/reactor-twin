@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 
 from reactor_twin.reactors.kinetics.base import AbstractKinetics
 from reactor_twin.utils.registry import KINETICS_REGISTRY
@@ -89,9 +90,9 @@ class MonodKinetics(AbstractKinetics):
 
     def compute_rates(
         self,
-        concentrations: np.ndarray,
+        concentrations: npt.NDArray[Any],
         temperature: float,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Compute net production rates using Monod kinetics.
 
         Args:
@@ -135,7 +136,7 @@ class MonodKinetics(AbstractKinetics):
             Specific growth rate.
         """
         S = max(substrate_conc, 0.0)
-        return self.mu_max * S / (self.K_s + S)
+        return cast(float, self.mu_max * S / (self.K_s + S))
 
     @classmethod
     def from_dict(cls, config: dict[str, Any]) -> MonodKinetics:

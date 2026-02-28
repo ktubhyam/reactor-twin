@@ -13,7 +13,7 @@ Reference: Rubanova et al. (2019). "Latent ODEs for Irregularly-Sampled Time Ser
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import torch
 from torch import nn
@@ -54,6 +54,7 @@ class Encoder(nn.Module):
         self.latent_dim = latent_dim
         self.encoder_type = encoder_type
 
+        self.rnn: nn.GRU | nn.LSTM
         if encoder_type == "gru":
             self.rnn = nn.GRU(
                 input_dim,
@@ -155,7 +156,7 @@ class Decoder(nn.Module):
         Returns:
             Observations, same shape but with latent_dim -> output_dim.
         """
-        return self.net(z)
+        return cast(torch.Tensor, self.net(z))
 
 
 @NEURAL_DE_REGISTRY.register("latent_neural_ode")
@@ -258,7 +259,7 @@ class LatentNeuralODE(AbstractNeuralDE):
         Returns:
             Tuple of (z_mean, z_logvar).
         """
-        return self.encoder(x)
+        return cast(tuple[torch.Tensor, torch.Tensor], self.encoder(x))
 
     def reparameterize(
         self,
@@ -287,7 +288,7 @@ class LatentNeuralODE(AbstractNeuralDE):
         Returns:
             Observations, shape (batch, output_dim) or (batch, time, output_dim).
         """
-        return self.decoder(z)
+        return cast(torch.Tensor, self.decoder(z))
 
     def forward(
         self,
@@ -325,7 +326,7 @@ class LatentNeuralODE(AbstractNeuralDE):
         )
 
         # Transpose to (batch, time, latent_dim)
-        z_trajectory = z_trajectory.transpose(0, 1)
+        z_trajectory = cast(torch.Tensor, z_trajectory).transpose(0, 1)
 
         # Decode to observation space
         x_trajectory = self.decode(z_trajectory)

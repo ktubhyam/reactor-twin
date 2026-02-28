@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +56,9 @@ class AbstractReactor(ABC):
     def ode_rhs(
         self,
         t: float,
-        y: np.ndarray,
-        u: np.ndarray | None = None,
-    ) -> np.ndarray:
+        y: npt.NDArray[Any],
+        u: npt.NDArray[Any] | None = None,
+    ) -> npt.NDArray[Any]:
         """ODE right-hand side for scipy.integrate.solve_ivp.
 
         Args:
@@ -71,7 +72,7 @@ class AbstractReactor(ABC):
         raise NotImplementedError("Subclasses must implement ode_rhs()")
 
     @abstractmethod
-    def get_initial_state(self) -> np.ndarray:
+    def get_initial_state(self) -> npt.NDArray[Any]:
         """Get initial conditions for the reactor.
 
         Returns:
@@ -98,7 +99,7 @@ class AbstractReactor(ABC):
         """
         return list(range(self.state_dim))
 
-    def validate_state(self, y: np.ndarray) -> bool:
+    def validate_state(self, y: npt.NDArray[Any]) -> bool:
         """Validate physical constraints on state.
 
         Args:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import torch
 from torchdiffeq import odeint, odeint_adjoint
@@ -114,7 +114,7 @@ class NeuralODE(AbstractNeuralDE):
         )
 
         # Transpose to (batch, time, state)
-        z_trajectory = z_trajectory.transpose(0, 1)
+        z_trajectory = cast(torch.Tensor, z_trajectory).transpose(0, 1)
 
         return z_trajectory
 

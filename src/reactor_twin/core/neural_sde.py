@@ -16,7 +16,7 @@ Reference: Li et al. (2020). "Scalable Gradients for Stochastic Differential Equ
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import torch
 from torch import nn
@@ -62,6 +62,7 @@ class SDEFunc(nn.Module):
         self.noise_type = noise_type
         self.sde_type = sde_type
 
+        self.diffusion_func: nn.Sequential | nn.Parameter
         # Create diffusion function if not provided
         if diffusion_func is None:
             state_dim = drift_func.state_dim
@@ -82,7 +83,7 @@ class SDEFunc(nn.Module):
             else:
                 raise ValueError(f"Unsupported noise_type for auto-creation: {noise_type}")
         else:
-            self.diffusion_func = diffusion_func
+            self.diffusion_func = diffusion_func  # type: ignore[assignment]
 
     def f(self, t: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
         """Drift term f(z, t).
@@ -94,7 +95,7 @@ class SDEFunc(nn.Module):
         Returns:
             Drift, shape (batch, state_dim).
         """
-        return self.drift_func(t, z)
+        return cast(torch.Tensor, self.drift_func(t, z))
 
     def g(self, t: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
         """Diffusion term g(z, t).
@@ -111,15 +112,15 @@ class SDEFunc(nn.Module):
                 - 'general': (batch, state_dim, noise_dim)
         """
         if self.noise_type == "diagonal":
-            return self.diffusion_func(z)
+            return cast(torch.Tensor, cast(nn.Sequential, self.diffusion_func)(z))
         elif self.noise_type == "additive":
             batch_size = z.shape[0]
-            return self.diffusion_func.expand(batch_size, -1)
+            return cast(nn.Parameter, self.diffusion_func).expand(batch_size, -1)
         elif self.noise_type == "scalar":
             batch_size = z.shape[0]
-            return self.diffusion_func.expand(batch_size, 1)
+            return cast(nn.Parameter, self.diffusion_func).expand(batch_size, 1)
         else:
-            return self.diffusion_func(t, z)
+            return cast(torch.Tensor, cast(nn.Sequential, self.diffusion_func)(t, z))
 
 
 @NEURAL_DE_REGISTRY.register("neural_sde")
@@ -220,7 +221,7 @@ class NeuralSDE(AbstractNeuralDE):
             raise NotImplementedError("Controls not yet supported for Neural SDE")
 
         # Generate multiple sample paths
-        trajectories = []
+        traj_list: list[torch.Tensor] = []
         for _ in range(num_samples):
             # Solve SDE
             z_trajectory = sdeint(
@@ -232,11 +233,11 @@ class NeuralSDE(AbstractNeuralDE):
             )
 
             # Transpose to (batch, time, state_dim)
-            z_trajectory = z_trajectory.transpose(0, 1)
-            trajectories.append(z_trajectory)
+            z_trajectory = cast(torch.Tensor, z_trajectory).transpose(0, 1)
+            traj_list.append(z_trajectory)
 
         # Stack samples: (num_samples, batch, time, state_dim)
-        trajectories = torch.stack(trajectories, dim=0)
+        trajectories = torch.stack(traj_list, dim=0)
 
         # If single sample, remove sample dimension
         if num_samples == 1:

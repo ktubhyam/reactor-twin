@@ -14,9 +14,10 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 import torch
 
 from reactor_twin.core.base import AbstractNeuralDE
@@ -83,15 +84,15 @@ class SPCChart:
         self.cusum_h = cusum_h
 
         # Statistics learned from baseline
-        self.mean: np.ndarray | None = None
-        self.std: np.ndarray | None = None
+        self.mean: npt.NDArray[Any] | None = None
+        self.std: npt.NDArray[Any] | None = None
 
         # Running state
-        self._ewma: np.ndarray | None = None
-        self._cusum_pos: np.ndarray | None = None
-        self._cusum_neg: np.ndarray | None = None
+        self._ewma: npt.NDArray[Any] | None = None
+        self._cusum_pos: npt.NDArray[Any] | None = None
+        self._cusum_neg: npt.NDArray[Any] | None = None
 
-    def set_baseline(self, data: np.ndarray) -> None:
+    def set_baseline(self, data: npt.NDArray[Any]) -> None:
         """Learn normal-operation statistics.
 
         Args:
@@ -109,7 +110,7 @@ class SPCChart:
         self._cusum_pos = np.zeros(self.num_vars)
         self._cusum_neg = np.zeros(self.num_vars)
 
-    def update(self, x: np.ndarray) -> dict[str, Any]:
+    def update(self, x: npt.NDArray[Any]) -> dict[str, Any]:
         """Process one observation and return SPC alarms.
 
         Args:
@@ -129,13 +130,13 @@ class SPCChart:
         lam = self.ewma_lambda
         ewma_prev = self._ewma
         self._ewma = lam * x + (1 - lam) * ewma_prev  # type: ignore[operator]
-        ewma_z = (self._ewma - self.mean) / self.std  # type: ignore[operator]
+        ewma_z = (self._ewma - self.mean) / self.std
         ewma_limit = self.ewma_L * np.sqrt(lam / (2 - lam))
         ewma_alarm = np.abs(ewma_z) > ewma_limit
 
         # CUSUM update
-        self._cusum_pos = np.maximum(0, self._cusum_pos + z - self.cusum_k)  # type: ignore[operator]
-        self._cusum_neg = np.maximum(0, self._cusum_neg - z - self.cusum_k)  # type: ignore[operator]
+        self._cusum_pos = np.maximum(0, self._cusum_pos + z - self.cusum_k)
+        self._cusum_neg = np.maximum(0, self._cusum_neg - z - self.cusum_k)
         cusum_alarm = (self._cusum_pos > self.cusum_h) | (self._cusum_neg > self.cusum_h)
 
         return {
@@ -179,10 +180,10 @@ class ResidualDetector:
         self.threshold_sigma = threshold_sigma
         self.device = torch.device(device)
 
-        self.residual_mean: np.ndarray | None = None
-        self.residual_std: np.ndarray | None = None
+        self.residual_mean: npt.NDArray[Any] | None = None
+        self.residual_std: npt.NDArray[Any] | None = None
 
-    def set_baseline(self, residuals: np.ndarray) -> None:
+    def set_baseline(self, residuals: npt.NDArray[Any]) -> None:
         """Learn residual statistics from normal operation.
 
         Args:
@@ -195,7 +196,7 @@ class ResidualDetector:
         self,
         z_current: torch.Tensor,
         z_next_measured: torch.Tensor,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Compute prediction residual.
 
         Args:
@@ -211,7 +212,7 @@ class ResidualDetector:
             z_pred = self.model.predict(z0, t_span)  # (1, 2, state_dim)
         z_pred_next = z_pred[0, -1].cpu().numpy()
         z_meas = z_next_measured.cpu().numpy()
-        return z_meas - z_pred_next
+        return cast(npt.NDArray[Any], z_meas - z_pred_next)
 
     def update(
         self,
@@ -231,7 +232,7 @@ class ResidualDetector:
         residual = self.compute_residual(z_current, z_next_measured)
 
         if self.residual_mean is not None:
-            z_score = np.abs(residual - self.residual_mean) / self.residual_std  # type: ignore[operator]
+            z_score = np.abs(residual - self.residual_mean) / self.residual_std
             alarm = z_score > self.threshold_sigma
         else:
             z_score = np.zeros(self.state_dim)
@@ -262,9 +263,9 @@ class FaultIsolator:
 
     def __init__(self, state_dim: int) -> None:
         self.state_dim = state_dim
-        self.baseline_residual_cov: np.ndarray | None = None
+        self.baseline_residual_cov: npt.NDArray[Any] | None = None
 
-    def set_baseline(self, residuals: np.ndarray) -> None:
+    def set_baseline(self, residuals: npt.NDArray[Any]) -> None:
         """Learn residual covariance from normal data.
 
         Args:
@@ -274,7 +275,7 @@ class FaultIsolator:
             np.cov(residuals, rowvar=False) + np.eye(self.state_dim) * 1e-10
         )
 
-    def isolate(self, residual: np.ndarray) -> dict[str, Any]:
+    def isolate(self, residual: npt.NDArray[Any]) -> dict[str, Any]:
         """Compute per-variable contribution to squared prediction error.
 
         Args:
@@ -334,8 +335,8 @@ class FaultClassifier:
 
     def fit(
         self,
-        features: np.ndarray,
-        labels: np.ndarray | list[str],
+        features: npt.NDArray[Any],
+        labels: npt.NDArray[Any] | list[str],
     ) -> None:
         """Train the classifier.
 
@@ -362,7 +363,7 @@ class FaultClassifier:
         self.classes = list(self.classifier.classes_)
         logger.info(f"FaultClassifier trained ({self.method}): classes={self.classes}")
 
-    def predict(self, features: np.ndarray) -> dict[str, Any]:
+    def predict(self, features: npt.NDArray[Any]) -> dict[str, Any]:
         """Classify fault type from features.
 
         Args:
@@ -429,7 +430,7 @@ class FaultDetector:
 
         self._has_baseline = False
 
-    def set_baseline(self, normal_data: dict[str, np.ndarray]) -> None:
+    def set_baseline(self, normal_data: dict[str, npt.NDArray[Any]]) -> None:
         """Learn normal-operation statistics for all levels.
 
         Args:
@@ -457,7 +458,7 @@ class FaultDetector:
         z_current: torch.Tensor,
         z_next_measured: torch.Tensor,
         t: float = 0.0,
-        observation: np.ndarray | None = None,
+        observation: npt.NDArray[Any] | None = None,
     ) -> dict[str, Any]:
         """Process one timestep across all detection levels.
 

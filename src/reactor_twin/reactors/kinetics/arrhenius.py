@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 
 from reactor_twin.reactors.kinetics.base import AbstractKinetics
 from reactor_twin.utils.constants import R_GAS
@@ -62,9 +63,9 @@ class ArrheniusKinetics(AbstractKinetics):
 
     def compute_reaction_rates(
         self,
-        concentrations: np.ndarray,
+        concentrations: npt.NDArray[Any],
         temperature: float,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Compute per-reaction rates (before stoichiometric mapping).
 
         Args:
@@ -82,13 +83,13 @@ class ArrheniusKinetics(AbstractKinetics):
                 if self.orders[j, i] > 0:
                     reaction_rates[j] *= concentrations[i] ** self.orders[j, i]
 
-        return reaction_rates
+        return cast(npt.NDArray[Any], reaction_rates)
 
     def compute_rates(
         self,
-        concentrations: np.ndarray,
+        concentrations: npt.NDArray[Any],
         temperature: float,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Compute reaction rates using Arrhenius law.
 
         Args:
@@ -103,7 +104,7 @@ class ArrheniusKinetics(AbstractKinetics):
         # Apply stoichiometry: net_rate_i = sum_j(nu_ij * r_j)
         net_rates = self.stoich.T @ reaction_rates  # (species,)
 
-        return net_rates
+        return cast(npt.NDArray[Any], net_rates)
 
     def validate_parameters(self) -> bool:
         """Validate kinetic parameters.

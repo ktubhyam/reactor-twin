@@ -87,7 +87,8 @@ class ModelRegistry:
         """Load or create the manifest file."""
         if self._manifest_path.exists():
             with open(self._manifest_path) as f:
-                return json.load(f)
+                data: dict[str, list[dict[str, Any]]] = json.load(f)
+                return data
         return {}
 
     def _save_manifest(self) -> None:

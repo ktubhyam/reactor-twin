@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import copy
 import logging
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from torch import nn
 from torchdiffeq import odeint
@@ -69,7 +71,7 @@ class ReactorTaskEncoder(nn.Module):
             Task embedding, shape (batch, embedding_dim).
         """
         x = torch.cat([reactor_type, params], dim=-1)
-        return self.net(x)
+        return cast(torch.Tensor, self.net(x))
 
 
 class _ConditionedODEFunc(nn.Module):
@@ -121,7 +123,7 @@ class _ConditionedODEFunc(nn.Module):
             zeros = torch.zeros(batch_size, self.embedding_dim, device=z.device)
             x = torch.cat([z, t_expand, zeros], dim=-1)
 
-        return self.net(x)
+        return cast(torch.Tensor, self.net(x))
 
 
 @NEURAL_DE_REGISTRY.register("foundation_neural_ode")
@@ -192,7 +194,8 @@ class FoundationNeuralODE(AbstractNeuralDE):
         Returns:
             Trajectory, shape (batch, num_times, state_dim).
         """
-        self.ode_func.set_task_embedding(task_embedding)
+        if task_embedding is not None:
+            self.ode_func.set_task_embedding(task_embedding)
 
         z_traj = odeint(
             self.ode_func,
@@ -202,7 +205,7 @@ class FoundationNeuralODE(AbstractNeuralDE):
             atol=self.atol,
             method=self.solver,
         )
-        return z_traj.transpose(0, 1)
+        return cast(torch.Tensor, z_traj.transpose(0, 1))
 
     def compute_loss(
         self,
@@ -291,7 +294,7 @@ class FoundationTrainer:
         task_generators: list[ReactorDataGenerator],
         num_epochs: int = 50,
         t_span: tuple[float, float] = (0.0, 1.0),
-        t_eval: np.ndarray | None = None,
+        t_eval: npt.NDArray[Any] | None = None,
         batch_size: int = 8,
     ) -> list[float]:
         """Pre-train with Reptile meta-learning across reactor tasks.
@@ -352,7 +355,7 @@ class FoundationTrainer:
         target_generator: ReactorDataGenerator,
         num_steps: int = 20,
         t_span: tuple[float, float] = (0.0, 1.0),
-        t_eval: np.ndarray | None = None,
+        t_eval: npt.NDArray[Any] | None = None,
         batch_size: int = 8,
         freeze_encoder: bool = True,
     ) -> list[float]:
@@ -406,9 +409,9 @@ class FoundationTrainer:
         self,
         test_generators: list[ReactorDataGenerator],
         t_span: tuple[float, float] = (0.0, 1.0),
-        t_eval: np.ndarray | None = None,
+        t_eval: npt.NDArray[Any] | None = None,
         batch_size: int = 8,
-    ) -> dict[str, float]:
+    ) -> dict[str, float | list[float]]:
         """Evaluate model on test reactors.
 
         Args:

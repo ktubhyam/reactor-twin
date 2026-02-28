@@ -119,7 +119,7 @@ class AbstractNeuralDE(nn.Module, ABC):
         )
 
         # Backward pass
-        losses["total"].backward()
+        losses["total"].backward()  # type: ignore[no-untyped-call]
         optimizer.step()
 
         # Convert to scalars

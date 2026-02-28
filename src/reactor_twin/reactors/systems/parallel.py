@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 import numpy as np
 
@@ -173,7 +174,7 @@ def compute_selectivity(
         return 0.0
     r1 = k1 * (C_A**n1)
     r2 = k2 * (C_A**n2)
-    return r1 / (r2 + 1e-10)
+    return cast(float, r1 / (r2 + 1e-10))
 
 
 def compute_yield(C_A_in: float, C_A: float, C_B: float) -> float:

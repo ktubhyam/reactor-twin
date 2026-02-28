@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 
 from reactor_twin.exceptions import ConfigurationError
 from reactor_twin.reactors.base import AbstractReactor
@@ -84,9 +85,9 @@ class CSTRReactor(AbstractReactor):
     def ode_rhs(
         self,
         t: float,
-        y: np.ndarray,
-        u: np.ndarray | None = None,
-    ) -> np.ndarray:
+        y: npt.NDArray[Any],
+        u: npt.NDArray[Any] | None = None,
+    ) -> npt.NDArray[Any]:
         """CSTR ODE right-hand side.
 
         Mass balance: dC_i/dt = (F/V)*(C_feed_i - C_i) + sum_j(nu_ij * r_j)
@@ -121,7 +122,7 @@ class CSTRReactor(AbstractReactor):
         dC_dt = (F / V) * (C_feed - C) + rates
 
         if self.isothermal:
-            return dC_dt
+            return cast(npt.NDArray[Any], dC_dt)
 
         # Energy balance
         rho = self.params["rho"]
@@ -144,9 +145,9 @@ class CSTRReactor(AbstractReactor):
             + (UA / (rho * Cp * V)) * (T_coolant - T)
         )
 
-        return np.concatenate([dC_dt, [dT_dt]])
+        return cast(npt.NDArray[Any], np.concatenate([dC_dt, [dT_dt]]))
 
-    def get_initial_state(self) -> np.ndarray:
+    def get_initial_state(self) -> npt.NDArray[Any]:
         """Get initial conditions.
 
         Returns:

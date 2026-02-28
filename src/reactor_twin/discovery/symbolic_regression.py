@@ -9,9 +9,10 @@ Optional dependency: ``pysr>=0.18`` in the ``[discovery]`` group.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 import torch
 
 from reactor_twin.core.base import AbstractNeuralDE
@@ -62,7 +63,7 @@ class SymbolicRegressor:
             **pysr_kwargs,
         )
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> SymbolicRegressor:
+    def fit(self, X: npt.NDArray[Any], y: npt.NDArray[Any]) -> SymbolicRegressor:
         """Fit symbolic regression model.
 
         Args:
@@ -75,7 +76,7 @@ class SymbolicRegressor:
         self.model.fit(X, y, variable_names=self.feature_names)
         return self
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Predict using best discovered expression.
 
         Args:
@@ -84,7 +85,7 @@ class SymbolicRegressor:
         Returns:
             Predictions, shape (N,).
         """
-        return self.model.predict(X)
+        return cast(npt.NDArray[Any], self.model.predict(X))
 
     def get_expression(self, index: int = 0) -> str:
         """Get the i-th symbolic expression as a string.
@@ -143,7 +144,7 @@ class SymbolicKineticsDiscovery:
         self,
         z0: torch.Tensor,
         t_span: torch.Tensor,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[npt.NDArray[Any], npt.NDArray[Any]]:
         """Extract (state, derivative) pairs from model.
 
         Args:
@@ -232,8 +233,8 @@ class SymbolicKineticsDiscovery:
     def validate(
         self,
         regressor: SymbolicRegressor,
-        Z_test: np.ndarray,
-        dZ_test: np.ndarray,
+        Z_test: npt.NDArray[Any],
+        dZ_test: npt.NDArray[Any],
         target_state_index: int = 0,
     ) -> dict[str, float]:
         """Validate discovered expression on test data.

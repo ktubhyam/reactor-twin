@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from reactor_twin.exceptions import ConfigurationError
 from reactor_twin.reactors.base import AbstractReactor
@@ -105,9 +106,9 @@ class MultiPhaseReactor(AbstractReactor):
     def ode_rhs(
         self,
         t: float,
-        y: np.ndarray,
-        u: np.ndarray | None = None,
-    ) -> np.ndarray:
+        y: npt.NDArray[Any],
+        u: npt.NDArray[Any] | None = None,
+    ) -> npt.NDArray[Any]:
         n_liq = self.num_species
         n_gas = self.num_gas_species
 
@@ -157,7 +158,7 @@ class MultiPhaseReactor(AbstractReactor):
 
         return np.concatenate(derivatives)
 
-    def get_initial_state(self) -> np.ndarray:
+    def get_initial_state(self) -> npt.NDArray[Any]:
         C_L0 = np.array(self.params.get("C_L_initial", self.params["C_L_feed"]))
         C_G0 = np.array(self.params.get("C_G_initial", self.params["C_G_feed"]))
         state = [C_L0, C_G0]

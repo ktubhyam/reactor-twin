@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from reactor_twin.reactors.base import AbstractReactor
 
@@ -65,11 +66,11 @@ class SensitivityAnalyzer:
 
     def _evaluate_model(
         self,
-        param_values: np.ndarray,
+        param_values: npt.NDArray[Any],
         t_span: tuple[float, float],
-        t_eval: np.ndarray,
+        t_eval: npt.NDArray[Any],
         output_index: int = 0,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Run reactor simulation for each parameter set.
 
         Args:
@@ -138,7 +139,7 @@ class SensitivityAnalyzer:
     def analyze(
         self,
         t_span: tuple[float, float],
-        t_eval: np.ndarray,
+        t_eval: npt.NDArray[Any],
         method: str = "sobol",
         output_index: int = 0,
         N: int = 256,

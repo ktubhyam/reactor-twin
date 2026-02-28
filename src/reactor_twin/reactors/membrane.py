@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 
 from reactor_twin.exceptions import ConfigurationError
 from reactor_twin.reactors.base import AbstractReactor
@@ -128,7 +129,7 @@ class MembraneReactor(AbstractReactor):
             dim += 1
         return dim
 
-    def _compute_flux(self, C_ret_perm: np.ndarray, C_perm: np.ndarray) -> np.ndarray:
+    def _compute_flux(self, C_ret_perm: npt.NDArray[Any], C_perm: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Compute permeation flux through membrane.
 
         Args:
@@ -149,14 +150,14 @@ class MembraneReactor(AbstractReactor):
             # Linear: J = Q * A * (C_ret - C_perm)
             J = Q * A * (np.maximum(C_ret_perm, 0.0) - np.maximum(C_perm, 0.0))
 
-        return J
+        return cast(npt.NDArray[Any], J)
 
     def ode_rhs(
         self,
         t: float,
-        y: np.ndarray,
-        u: np.ndarray | None = None,
-    ) -> np.ndarray:
+        y: npt.NDArray[Any],
+        u: npt.NDArray[Any] | None = None,
+    ) -> npt.NDArray[Any]:
         n_ret = self.num_species
         n_perm = self.num_permeating
 
@@ -210,7 +211,7 @@ class MembraneReactor(AbstractReactor):
 
         return np.concatenate(derivatives)
 
-    def validate_state(self, y: np.ndarray) -> bool:
+    def validate_state(self, y: npt.NDArray[Any]) -> bool:
         """Validate physical constraints on retentate and permeate phases.
 
         Args:
@@ -225,7 +226,7 @@ class MembraneReactor(AbstractReactor):
         C_perm = y[n_ret : n_ret + n_perm]
         return bool(np.all(C_ret >= 0) and np.all(C_perm >= 0))
 
-    def get_initial_state(self) -> np.ndarray:
+    def get_initial_state(self) -> npt.NDArray[Any]:
         C_ret0 = np.array(self.params.get("C_ret_initial", self.params["C_ret_feed"]))
         C_perm0 = np.array(self.params.get("C_perm_initial", np.zeros(self.num_permeating)))
         state = [C_ret0, C_perm0]

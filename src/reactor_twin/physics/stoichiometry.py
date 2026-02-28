@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 import torch
 
@@ -91,7 +92,7 @@ class StoichiometricConstraint(AbstractConstraint):
         else:
             raise ValueError(f"Unsupported z shape: {z.shape}")
 
-        return z_projected
+        return cast(torch.Tensor, z_projected)
 
     def compute_violation(self, z: torch.Tensor) -> torch.Tensor:
         """Compute stoichiometric violation penalty (soft mode).

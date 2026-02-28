@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+from typing import Any
 
 import numpy as np
 from scipy.integrate import solve_ivp
@@ -12,7 +13,7 @@ from scipy.integrate import solve_ivp
 logger = logging.getLogger(__name__)
 
 
-async def simulate_ws(websocket, benchmarks: dict) -> None:  # type: ignore[type-arg]
+async def simulate_ws(websocket: Any, benchmarks: dict[str, Any]) -> None:
     """WebSocket handler for streaming simulation.
 
     Protocol:

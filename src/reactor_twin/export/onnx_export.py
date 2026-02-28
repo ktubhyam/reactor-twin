@@ -5,9 +5,10 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from torch import nn
 
@@ -32,7 +33,7 @@ class _ODEFuncWrapper(nn.Module):
         self.ode_func = ode_func
 
     def forward(self, t: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
-        return self.ode_func(t, z)
+        return cast(torch.Tensor, self.ode_func(t, z))
 
 
 def _export_sde_drift(
@@ -63,7 +64,7 @@ def _export_sde_drift(
         "This is a deterministic approximation."
     )
 
-    drift_func = model.sde_func.drift_func  # type: ignore[attr-defined]
+    drift_func = model.sde_func.drift_func
     state_dim = drift_func.state_dim
     wrapper = _ODEFuncWrapper(drift_func)
     wrapper.eval()
@@ -122,8 +123,8 @@ def _export_cde_func(
         "The exported network computes f_theta(z) -> (state_dim, input_dim) matrix."
     )
 
-    cde_func = model.cde_func  # type: ignore[attr-defined]
-    state_dim: int = model.state_dim  # type: ignore[attr-defined]
+    cde_func = model.cde_func
+    state_dim: int = model.state_dim
     cde_path = output_dir / "cde_func.onnx"
 
     dummy_t = torch.tensor(0.0)
@@ -370,39 +371,39 @@ class ONNXInferenceRunner:
         for name, path in onnx_paths.items():
             self._sessions[name] = ort.InferenceSession(str(path))
 
-    def _ode_eval(self, t: float, z: np.ndarray) -> np.ndarray:
+    def _ode_eval(self, t: float, z: npt.NDArray[Any]) -> npt.NDArray[Any]:
         """Evaluate the ONNX ODE function."""
         t_np = np.array(t, dtype=np.float32)
         z_np = z.astype(np.float32)
-        return self._sessions["ode_func"].run(None, {"t": t_np, "z": z_np})[0]
+        return cast(npt.NDArray[Any], self._sessions["ode_func"].run(None, {"t": t_np, "z": z_np})[0])
 
     @staticmethod
     def _euler_step(
         f: Any,
         t: float,
-        z: np.ndarray,
+        z: npt.NDArray[Any],
         dt: float,
-    ) -> np.ndarray:
-        return z + dt * f(t, z)
+    ) -> npt.NDArray[Any]:
+        return cast(npt.NDArray[Any], z + dt * f(t, z))
 
     @staticmethod
     def _rk4_step(
         f: Any,
         t: float,
-        z: np.ndarray,
+        z: npt.NDArray[Any],
         dt: float,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         k1 = f(t, z)
         k2 = f(t + dt / 2, z + dt / 2 * k1)
         k3 = f(t + dt / 2, z + dt / 2 * k2)
         k4 = f(t + dt, z + dt * k3)
-        return z + (dt / 6) * (k1 + 2 * k2 + 2 * k3 + k4)
+        return cast(npt.NDArray[Any], z + (dt / 6) * (k1 + 2 * k2 + 2 * k3 + k4))
 
     def predict(
         self,
-        z0: np.ndarray,
-        t_span: np.ndarray,
-    ) -> np.ndarray:
+        z0: npt.NDArray[Any],
+        t_span: npt.NDArray[Any],
+    ) -> npt.NDArray[Any]:
         """Integrate ODE using fixed-step solver + ONNX Runtime.
 
         Args:
@@ -435,8 +436,8 @@ class ONNXInferenceRunner:
 def benchmark_inference(
     pytorch_model: nn.Module,
     onnx_runner: ONNXInferenceRunner,
-    z0: np.ndarray,
-    t_span: np.ndarray,
+    z0: npt.NDArray[Any],
+    t_span: npt.NDArray[Any],
     n_repeats: int = 10,
 ) -> dict[str, float]:
     """Compare PyTorch vs ONNX inference speed.

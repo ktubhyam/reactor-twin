@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 
 from reactor_twin.reactors.kinetics.base import AbstractKinetics
 from reactor_twin.utils.registry import KINETICS_REGISTRY
@@ -68,9 +69,9 @@ class PowerLawKinetics(AbstractKinetics):
 
     def compute_rates(
         self,
-        concentrations: np.ndarray,
+        concentrations: npt.NDArray[Any],
         temperature: float,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """Compute reaction rates using power law.
 
         Args:
@@ -102,7 +103,7 @@ class PowerLawKinetics(AbstractKinetics):
         # Apply stoichiometry: net_rate_i = sum_j(nu_ij * r_j)
         net_rates = self.stoich.T @ reaction_rates
 
-        return net_rates
+        return cast(npt.NDArray[Any], net_rates)
 
     def validate_parameters(self) -> bool:
         """Validate kinetic parameters.

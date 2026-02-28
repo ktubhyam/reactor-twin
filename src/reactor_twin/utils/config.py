@@ -6,7 +6,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 from pydantic import BaseModel, Field
@@ -86,14 +86,14 @@ class LoggingConfig(BaseModel):
 def _interpolate_env_vars(text: str) -> str:
     """Replace ${VAR:default} patterns with environment variable values."""
 
-    def _replace(match: re.Match) -> str:
+    def _replace(match: re.Match[str]) -> str:
         var_name = match.group(1)
         default = match.group(3)  # group 3 is after the optional colon
         value = os.environ.get(var_name)
         if value is not None:
             return value
         if default is not None:
-            return default
+            return cast(str, default)
         return match.group(0)  # Leave unchanged if no env var and no default
 
     return re.sub(r"\$\{(\w+)(:([^}]*))?\}", _replace, text)

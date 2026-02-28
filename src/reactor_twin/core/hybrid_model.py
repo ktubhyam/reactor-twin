@@ -9,7 +9,7 @@ to make the non-differentiable reactor ODE compatible with backprop.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -28,7 +28,7 @@ class _ReactorPhysicsAutograd(torch.autograd.Function):
     """Custom autograd for non-differentiable reactor ODE via finite differences."""
 
     @staticmethod
-    def forward(ctx, z: torch.Tensor, t: torch.Tensor, reactor: Any, eps: float) -> torch.Tensor:
+    def forward(ctx: Any, z: torch.Tensor, t: torch.Tensor, reactor: Any, eps: float) -> torch.Tensor:
         ctx.reactor = reactor
         ctx.eps = eps
         ctx.save_for_backward(z, t)
@@ -46,7 +46,7 @@ class _ReactorPhysicsAutograd(torch.autograd.Function):
         return result
 
     @staticmethod
-    def backward(ctx, grad_output: torch.Tensor) -> tuple:
+    def backward(ctx: Any, grad_output: torch.Tensor) -> tuple[Any, ...]:
         z, t = ctx.saved_tensors
         reactor = ctx.reactor
         eps = ctx.eps
@@ -111,7 +111,7 @@ class ReactorPhysicsFunc(nn.Module):
         z: torch.Tensor,
         u: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        return _ReactorPhysicsAutograd.apply(z, t, self.reactor, self.eps)
+        return cast(torch.Tensor, _ReactorPhysicsAutograd.apply(z, t, self.reactor, self.eps))  # type: ignore[no-untyped-call]
 
 
 class _HybridODEFunc(nn.Module):
@@ -129,8 +129,8 @@ class _HybridODEFunc(nn.Module):
         self.alpha = alpha
 
     def forward(self, t: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
-        physics = self.physics_func(t, z)
-        neural = self.neural_func(t, z)
+        physics = cast(torch.Tensor, self.physics_func(t, z))
+        neural = cast(torch.Tensor, self.neural_func(t, z))
         return physics + self.alpha * neural
 
 
@@ -169,6 +169,7 @@ class HybridNeuralODE(AbstractNeuralDE):
         super().__init__(state_dim, input_dim, output_dim)
 
         # Physics function
+        self.physics_func: ReactorPhysicsFunc | _ZeroPhysicsFunc
         if reactor is not None:
             self.physics_func = ReactorPhysicsFunc(reactor)
         else:
@@ -221,7 +222,7 @@ class HybridNeuralODE(AbstractNeuralDE):
             atol=self.atol,
             method=self.solver,
         )
-        return z_traj.transpose(0, 1)
+        return cast(torch.Tensor, z_traj).transpose(0, 1)
 
     def compute_loss(
         self,

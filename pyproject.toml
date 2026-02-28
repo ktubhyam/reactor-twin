@@ -110,25 +110,34 @@ warn_unused_configs = true
 
 [[tool.mypy.overrides]]
 module = [
-    "streamlit.*",
-    "torchsde.*",
-    "torchcde.*",
-    "sklearn.*",
-    "plotly.*",
-    "pandas.*",
-    "SALib.*",
-    "onnxruntime.*",
-    "onnx.*",
-    "torchode.*",
-    "cantera.*",
-    "coolprop.*",
-    "wandb.*",
-    "pysr.*",
-    "papermill.*",
-    "boto3.*",
-    "botocore.*",
+    "streamlit", "streamlit.*",
+    "torchsde", "torchsde.*",
+    "torchcde", "torchcde.*",
+    "torchdiffeq", "torchdiffeq.*",
+    "torchode", "torchode.*",
+    "sklearn", "sklearn.*",
+    "plotly", "plotly.*",
+    "pandas", "pandas.*",
+    "SALib", "SALib.*",
+    "scipy", "scipy.*",
+    "yaml", "yaml.*",
+    "prometheus_client", "prometheus_client.*",
+    "onnxruntime", "onnxruntime.*",
+    "onnx", "onnx.*",
+    "cantera", "cantera.*",
+    "coolprop", "coolprop.*",
+    "wandb", "wandb.*",
+    "pysr", "pysr.*",
+    "papermill", "papermill.*",
+    "boto3", "boto3.*",
+    "botocore", "botocore.*",
+    "umap", "umap.*",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["reactor_twin.dashboard.*"]
+ignore_errors = true
 
 [tool.coverage.run]
 omit = ["src/reactor_twin/dashboard/*"]

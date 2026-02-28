@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 import numpy as np
 
@@ -151,7 +152,7 @@ def compute_optimal_residence_time(k1: float, k2: float) -> float:
     Returns:
         Optimal residence time (min).
     """
-    return 1.0 / np.sqrt(k1 * k2)
+    return cast(float, 1.0 / np.sqrt(k1 * k2))
 
 
 def compute_steady_state_concentrations(

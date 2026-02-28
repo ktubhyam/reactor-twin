@@ -6,7 +6,7 @@ import json
 import logging
 import sys
 import uuid
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
 from typing import Any
 
 _request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
@@ -52,7 +52,7 @@ class RequestTracer:
 
     def __init__(self, request_id: str | None = None):
         self.request_id = request_id or uuid.uuid4().hex[:12]
-        self._token = None
+        self._token: Token[str | None] | None = None
 
     def __enter__(self) -> RequestTracer:
         self._token = _request_id.set(self.request_id)
@@ -69,7 +69,7 @@ class _RequestIDFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         req_id = _request_id.get()
         if req_id is not None:
-            record.request_id = req_id  # type: ignore[attr-defined]
+            record.request_id = req_id  # noqa: B010
         return True
 
 

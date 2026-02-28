@@ -3,23 +3,25 @@
 from __future__ import annotations
 
 import logging
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 import torch
 
 logger = logging.getLogger(__name__)
 
 
-def _to_numpy(x: np.ndarray | torch.Tensor) -> np.ndarray:
+def _to_numpy(x: npt.NDArray[Any] | torch.Tensor) -> npt.NDArray[Any]:
     """Convert tensor to numpy array."""
     if isinstance(x, torch.Tensor):
-        return x.detach().cpu().numpy()
+        return cast(npt.NDArray[Any], x.detach().cpu().numpy())
     return np.asarray(x)
 
 
 def rmse(
-    y_pred: np.ndarray | torch.Tensor,
-    y_true: np.ndarray | torch.Tensor,
+    y_pred: npt.NDArray[Any] | torch.Tensor,
+    y_true: npt.NDArray[Any] | torch.Tensor,
 ) -> float:
     """Root mean squared error.
 
@@ -36,8 +38,8 @@ def rmse(
 
 
 def relative_rmse(
-    y_pred: np.ndarray | torch.Tensor,
-    y_true: np.ndarray | torch.Tensor,
+    y_pred: npt.NDArray[Any] | torch.Tensor,
+    y_true: npt.NDArray[Any] | torch.Tensor,
 ) -> float:
     """Relative root mean squared error (normalized by mean of |y_true|).
 
@@ -84,7 +86,7 @@ def mass_balance_error(
     proj_matrix = S.T @ SST_inv @ S  # (n_species, n_species)
     projected = delta @ proj_matrix.T  # (batch, n_species)
     residual = delta - projected  # (batch, n_species)
-    return torch.norm(residual, dim=-1)
+    return cast(torch.Tensor, torch.norm(residual, dim=-1))
 
 
 def energy_balance_error(

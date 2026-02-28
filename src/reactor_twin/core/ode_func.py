@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from typing import cast
 
 import torch
 from torch import nn
@@ -137,7 +138,7 @@ class MLPODEFunc(AbstractODEFunc):
         if u is not None:
             x[:, self.state_dim + 1 :] = u
 
-        out = self.net(x)
+        out = cast(torch.Tensor, self.net(x))
         return out.squeeze(0) if squeezed else out
 
 
@@ -214,8 +215,8 @@ class ResNetODEFunc(AbstractODEFunc):
 
         h = self.input_proj(x)
         for block in self.blocks:
-            h = h + block(h)
-        return self.output_proj(h)
+            h = h + cast(torch.Tensor, block(h))
+        return cast(torch.Tensor, self.output_proj(h))
 
 
 class HybridODEFunc(AbstractODEFunc):
@@ -258,8 +259,8 @@ class HybridODEFunc(AbstractODEFunc):
         Returns:
             dz/dt with physics + neural correction.
         """
-        physics_term = self.physics_func(t, z, u)
-        neural_term = self.neural_func(t, z, u)
+        physics_term = cast(torch.Tensor, self.physics_func(t, z, u))
+        neural_term = cast(torch.Tensor, self.neural_func(t, z, u))
         return physics_term + self.correction_weight * neural_term
 
 
@@ -318,7 +319,7 @@ class PortHamiltonianODEFunc(AbstractODEFunc):
 
     def hamiltonian(self, z: torch.Tensor) -> torch.Tensor:
         """Compute Hamiltonian H(z), shape (batch,)."""
-        return self.hamiltonian_net(z).squeeze(-1)
+        return cast(torch.Tensor, self.hamiltonian_net(z)).squeeze(-1)
 
     def forward(
         self,

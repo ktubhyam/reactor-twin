@@ -7,6 +7,7 @@ Requires the [api] optional dependencies:
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +116,7 @@ def simulate(
 
     from scipy.integrate import solve_ivp
 
-    reactor = BENCHMARKS[reactor_name]()
+    reactor = BENCHMARKS[reactor_name]()  # type: ignore[operator]
     y0 = reactor.get_initial_state()
     t_eval = np.linspace(0, t_end, num_points)
 
@@ -331,7 +332,7 @@ async def batch_predict(
 
 
 @app.get("/api/v2/models", responses={401: {"model": ErrorResponse}})
-async def list_uploaded_models(request: Request) -> dict:
+async def list_uploaded_models(request: Request) -> dict[str, Any]:
     """List all uploaded model IDs."""
     rate_limiter.check(request)
     await require_auth(request)

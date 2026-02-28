@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from scipy.integrate import solve_ivp
 from scipy.interpolate import CubicSpline
@@ -13,13 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 def integrate_ode(
-    func: callable,
+    func: Callable[..., Any],
     t_span: tuple[float, float],
-    y0: np.ndarray,
-    t_eval: np.ndarray | None = None,
+    y0: npt.NDArray[Any],
+    t_eval: npt.NDArray[Any] | None = None,
     method: str = "RK45",
-    **kwargs,
-) -> np.ndarray:
+    **kwargs: Any,
+) -> npt.NDArray[Any]:
     """Integrate ODE using scipy backend.
 
     Args:
@@ -36,11 +39,11 @@ def integrate_ode(
     sol = solve_ivp(func, t_span, y0, method=method, t_eval=t_eval, **kwargs)
     if not sol.success:
         logger.warning(f"ODE integration warning: {sol.message}")
-    return sol.y.T  # (n_steps, n_states)
+    return cast(npt.NDArray[Any], sol.y.T)  # (n_steps, n_states)
 
 
 def finite_difference_jacobian(
-    func: callable,
+    func: Callable[..., Any],
     x: torch.Tensor,
     epsilon: float = 1e-6,
 ) -> torch.Tensor:
@@ -70,7 +73,7 @@ def finite_difference_jacobian(
 
 
 def detect_stiffness(
-    eigenvalues: torch.Tensor | np.ndarray,
+    eigenvalues: torch.Tensor | npt.NDArray[Any],
 ) -> tuple[bool, float]:
     """Detect stiffness from Jacobian eigenvalues.
 
@@ -101,7 +104,7 @@ def detect_stiffness(
 
 
 def runge_kutta_4(
-    func: callable,
+    func: Callable[..., Any],
     t: float,
     y: torch.Tensor,
     dt: float,
@@ -121,7 +124,7 @@ def runge_kutta_4(
     k2 = func(t + 0.5 * dt, y + 0.5 * dt * k1)
     k3 = func(t + 0.5 * dt, y + 0.5 * dt * k2)
     k4 = func(t + dt, y + dt * k3)
-    return y + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+    return cast(torch.Tensor, y + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4))
 
 
 def adaptive_step_size(

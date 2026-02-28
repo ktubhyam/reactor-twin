@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 
 from reactor_twin.exceptions import ConfigurationError
 from reactor_twin.reactors.base import AbstractReactor
@@ -129,14 +130,14 @@ class FluidizedBedReactor(AbstractReactor):
         u_0 = self.params["u_0"]
         u_mf = self.params["u_mf"]
         d_b = self.params["d_b"]
-        return u_0 - u_mf + 0.711 * np.sqrt(self.GRAVITY * d_b)
+        return cast(float, u_0 - u_mf + 0.711 * np.sqrt(self.GRAVITY * d_b))
 
     def _bubble_fraction(self) -> float:
         """Compute bubble volume fraction delta."""
         u_0 = self.params["u_0"]
         u_mf = self.params["u_mf"]
         u_b = self._bubble_rise_velocity()
-        return (u_0 - u_mf) / u_b
+        return cast(float, (u_0 - u_mf) / u_b)
 
     def _phase_volumes(self) -> tuple[float, float]:
         """Compute bubble and emulsion phase volumes.
@@ -156,9 +157,9 @@ class FluidizedBedReactor(AbstractReactor):
     def ode_rhs(
         self,
         t: float,
-        y: np.ndarray,
-        u: np.ndarray | None = None,
-    ) -> np.ndarray:
+        y: npt.NDArray[Any],
+        u: npt.NDArray[Any] | None = None,
+    ) -> npt.NDArray[Any]:
         n = self.num_species
 
         # Extract states
@@ -209,7 +210,7 @@ class FluidizedBedReactor(AbstractReactor):
 
         return np.concatenate(derivatives)
 
-    def validate_state(self, y: np.ndarray) -> bool:
+    def validate_state(self, y: npt.NDArray[Any]) -> bool:
         """Validate physical constraints on both phases.
 
         Args:
@@ -223,7 +224,7 @@ class FluidizedBedReactor(AbstractReactor):
         C_e = y[n : 2 * n]
         return bool(np.all(C_b >= 0) and np.all(C_e >= 0))
 
-    def get_initial_state(self) -> np.ndarray:
+    def get_initial_state(self) -> npt.NDArray[Any]:
         C_feed = np.array(self.params["C_feed"])
         C_b0 = np.array(self.params.get("C_b_initial", C_feed))
         C_e0 = np.array(self.params.get("C_e_initial", C_feed))

@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from reactor_twin.exceptions import ConfigurationError
 from reactor_twin.reactors.base import AbstractReactor
@@ -94,9 +95,9 @@ class BatchReactor(AbstractReactor):
     def ode_rhs(
         self,
         t: float,
-        y: np.ndarray,
-        u: np.ndarray | None = None,
-    ) -> np.ndarray:
+        y: npt.NDArray[Any],
+        u: npt.NDArray[Any] | None = None,
+    ) -> npt.NDArray[Any]:
         """Batch reactor ODE right-hand side.
 
         Mass balance: dC_i/dt = Σ(nu_ij * r_j)
@@ -173,7 +174,7 @@ class BatchReactor(AbstractReactor):
 
         return np.concatenate(dy_dt)
 
-    def get_initial_state(self) -> np.ndarray:
+    def get_initial_state(self) -> npt.NDArray[Any]:
         """Get initial conditions.
 
         Returns:

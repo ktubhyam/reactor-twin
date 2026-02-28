@@ -3,26 +3,28 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
+import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 import plotly.graph_objects as go
 import torch
 
 logger = logging.getLogger(__name__)
 
 
-def _to_numpy(x: np.ndarray | torch.Tensor) -> np.ndarray:
+def _to_numpy(x: npt.NDArray[Any] | torch.Tensor) -> npt.NDArray[Any]:
     """Convert tensor to numpy array."""
     if isinstance(x, torch.Tensor):
-        return x.detach().cpu().numpy()
+        return cast(npt.NDArray[Any], x.detach().cpu().numpy())
     return np.asarray(x)
 
 
 def plot_trajectory(
-    t: np.ndarray | torch.Tensor,
-    y: np.ndarray | torch.Tensor,
+    t: npt.NDArray[Any] | torch.Tensor,
+    y: npt.NDArray[Any] | torch.Tensor,
     labels: list[str] | None = None,
     title: str = "Reactor Trajectory",
     backend: str = "matplotlib",
@@ -69,8 +71,8 @@ def plot_trajectory(
 
 
 def plot_phase_portrait(
-    x: np.ndarray | torch.Tensor,
-    y: np.ndarray | torch.Tensor,
+    x: npt.NDArray[Any] | torch.Tensor,
+    y: npt.NDArray[Any] | torch.Tensor,
     xlabel: str = "x",
     ylabel: str = "y",
     title: str = "Phase Portrait",
@@ -112,8 +114,8 @@ def plot_phase_portrait(
 
 
 def plot_bifurcation_diagram(
-    param_values: np.ndarray,
-    steady_states: np.ndarray,
+    param_values: npt.NDArray[Any],
+    steady_states: npt.NDArray[Any],
     param_name: str = "Parameter",
     state_name: str = "Steady State",
 ) -> go.Figure:
@@ -147,10 +149,10 @@ def plot_bifurcation_diagram(
 
 
 def plot_residual_time_distribution(
-    rtd: np.ndarray,
-    time_bins: np.ndarray,
-    theoretical: np.ndarray | None = None,
-) -> plt.Figure:
+    rtd: npt.NDArray[Any],
+    time_bins: npt.NDArray[Any],
+    theoretical: npt.NDArray[Any] | None = None,
+) -> matplotlib.figure.Figure:
     """Plot residence time distribution (RTD).
 
     Args:
@@ -175,7 +177,7 @@ def plot_residual_time_distribution(
 
 
 def plot_sensitivity_heatmap(
-    sensitivity_matrix: np.ndarray,
+    sensitivity_matrix: npt.NDArray[Any],
     param_names: list[str],
     state_names: list[str],
 ) -> go.Figure:
@@ -209,8 +211,8 @@ def plot_sensitivity_heatmap(
 
 
 def plot_pareto_front(
-    objective_1: np.ndarray,
-    objective_2: np.ndarray,
+    objective_1: npt.NDArray[Any],
+    objective_2: npt.NDArray[Any],
     labels: list[str] | None = None,
 ) -> go.Figure:
     """Plot Pareto front for multi-objective optimization.

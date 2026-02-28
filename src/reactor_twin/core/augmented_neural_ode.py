@@ -11,7 +11,7 @@ Reference: Dupont et al. (2019). "Augmented Neural ODEs." NeurIPS.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import torch
 from torchdiffeq import odeint, odeint_adjoint
@@ -152,7 +152,7 @@ class AugmentedNeuralODE(AbstractNeuralDE):
         )
 
         # Transpose to (batch, time, full_dim)
-        z_trajectory_full = z_trajectory_full.transpose(0, 1)
+        z_trajectory_full = cast(torch.Tensor, z_trajectory_full).transpose(0, 1)
 
         # Extract physical dimensions
         z_trajectory = self.extract_physical(z_trajectory_full)
@@ -236,7 +236,7 @@ class AugmentedNeuralODE(AbstractNeuralDE):
         )
 
         # Transpose to (batch, time, full_dim)
-        z_trajectory_full = z_trajectory_full.transpose(0, 1)
+        z_trajectory_full = cast(torch.Tensor, z_trajectory_full).transpose(0, 1)
 
         return z_trajectory_full
 

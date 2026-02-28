@@ -13,7 +13,7 @@ import logging
 import os
 import time
 from collections import defaultdict
-from typing import Any
+from typing import Any, cast
 
 try:
     from fastapi import HTTPException, Request
@@ -98,7 +98,7 @@ def verify_token(token: str) -> dict[str, Any]:
     if not hmac.compare_digest(expected_sig, actual_sig):
         raise HTTPException(status_code=401, detail="Invalid token signature")
 
-    payload = json.loads(_b64url_decode(parts[1]))
+    payload = cast(dict[str, Any], json.loads(_b64url_decode(parts[1])))
 
     if payload.get("exp", 0) < time.time():
         raise HTTPException(status_code=401, detail="Token expired")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from reactor_twin.reactors.cstr import CSTRReactor
 from reactor_twin.reactors.kinetics.monod import MonodKinetics
@@ -70,7 +71,7 @@ def create_bioreactor_cstr(
         product_idx=2,
     )
 
-    params: dict = {
+    params: dict[str, Any] = {
         "V": 1000.0,
         "F": 100.0,
         "T": 310.0,

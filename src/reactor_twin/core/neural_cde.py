@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import logging
 
+from typing import cast
+
 import torch
 from torch import nn
 
@@ -90,7 +92,7 @@ class CDEFunc(nn.Module):
         """
         batch_size = z.shape[0]
         output = self.net(z)  # (batch, state_dim * input_dim)
-        output = output.view(batch_size, self.state_dim, self.input_dim)
+        output = cast(torch.Tensor, output).view(batch_size, self.state_dim, self.input_dim)
         return output
 
 
@@ -229,7 +231,7 @@ class NeuralCDE(AbstractNeuralDE):
         # z_trajectory: (batch, num_times, state_dim)
 
         # Readout to output space
-        predictions = self.readout(z_trajectory)  # (batch, num_times, output_dim)
+        predictions = cast(torch.Tensor, self.readout(cast(torch.Tensor, z_trajectory)))  # (batch, num_times, output_dim)
 
         return predictions
 

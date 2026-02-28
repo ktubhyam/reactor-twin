@@ -173,7 +173,7 @@ class ElasticWeightConsolidation:
                 controls=batch.get("controls"),
             )
             losses = self.model.compute_loss(preds, batch["targets"])
-            losses["total"].backward()
+            losses["total"].backward()  # type: ignore[no-untyped-call]
 
             for n, p in self.model.named_parameters():
                 if p.requires_grad and p.grad is not None:
@@ -322,7 +322,7 @@ class OnlineAdapter:
             # --- EWC penalty ---
             loss = loss + self.ewc.penalty()
 
-            loss.backward()
+            loss.backward()  # type: ignore[no-untyped-call]
             self.optimizer.step()
             losses.append(loss.item())
 

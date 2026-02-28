@@ -63,6 +63,7 @@ class Trainer:
         self.model.to(self.device)
 
         # Create optimizer if not provided
+        self.optimizer: torch.optim.Optimizer
         if optimizer is None:
             self.optimizer = optim.Adam(model.parameters(), lr=1e-3)
         else:

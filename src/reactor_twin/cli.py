@@ -37,7 +37,7 @@ def cmd_train(args: argparse.Namespace) -> None:
         print(f"Unknown reactor type: {reactor_type}. Available: {list(reactor_factories.keys())}")
         sys.exit(1)
 
-    reactor = reactor_factories[reactor_type]()
+    reactor = reactor_factories[reactor_type]()  # type: ignore[operator]
 
     # Create model
     from reactor_twin.core.neural_ode import NeuralODE

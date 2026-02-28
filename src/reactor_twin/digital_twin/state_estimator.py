@@ -8,6 +8,7 @@ prediction step.
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 import torch
 
@@ -103,7 +104,7 @@ class EKFStateEstimator:
         argument, so we put *z* first.
         """
         # ode_func.forward(t, z, u=None)
-        return self.model.ode_func(t, z)
+        return cast(torch.Tensor, self.model.ode_func(t, z))
 
     def _compute_jacobian(self, z: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         """Compute the Jacobian df/dz via autograd.
@@ -122,15 +123,15 @@ class EKFStateEstimator:
         z = z.detach().requires_grad_(True)
         t = t.detach()
         try:
-            jac_fn = torch.func.jacrev(self._ode_func_wrapper, argnums=0)
-            F = jac_fn(z, t)
+            jac_fn = torch.func.jacrev(self._ode_func_wrapper, argnums=0)  # type: ignore[attr-defined]
+            F = cast(torch.Tensor, jac_fn(z, t))
         except Exception:
             logger.debug("torch.func.jacrev failed; falling back to autograd.functional.jacobian")
 
             def _fn(z_in: torch.Tensor) -> torch.Tensor:
-                return self.model.ode_func(t, z_in.unsqueeze(0)).squeeze(0)
+                return cast(torch.Tensor, self.model.ode_func(t, z_in.unsqueeze(0)).squeeze(0))
 
-            F = torch.autograd.functional.jacobian(_fn, z)
+            F = cast(torch.Tensor, torch.autograd.functional.jacobian(_fn, z))  # type: ignore[no-untyped-call]
             F = F.detach()
         return F
 
