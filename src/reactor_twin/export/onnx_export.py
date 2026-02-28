@@ -16,6 +16,14 @@ from reactor_twin.exceptions import ExportError
 logger = logging.getLogger(__name__)
 
 
+def _onnx_export_kwargs() -> dict[str, Any]:
+    """Return extra kwargs for torch.onnx.export to force legacy exporter on PyTorch 2.6+."""
+    major, minor = (int(x) for x in torch.__version__.split(".")[:2])
+    if major > 2 or (major == 2 and minor >= 6):
+        return {"dynamo": False}
+    return {}
+
+
 class _ODEFuncWrapper(nn.Module):
     """Wraps an ODE function for ONNX tracing: forward(t, z) -> dz_dt."""
 
@@ -106,6 +114,7 @@ class ONNXExporter:
                     "z": {0: "batch"},
                     "dz_dt": {0: "batch"},
                 },
+                **_onnx_export_kwargs(),
             )
         except Exception as exc:
             raise ExportError(f"Failed to export ode_func: {exc}") from exc
@@ -127,6 +136,7 @@ class ONNXExporter:
                     input_names=["x"],
                     output_names=["z_mean", "z_logvar"],
                     dynamic_axes={"x": {0: "batch"}},
+                    **_onnx_export_kwargs(),
                 )
                 paths["encoder"] = encoder_path
                 logger.info(f"Exported encoder to {encoder_path}")
@@ -145,6 +155,7 @@ class ONNXExporter:
                     input_names=["z"],
                     output_names=["x_hat"],
                     dynamic_axes={"z": {0: "batch"}},
+                    **_onnx_export_kwargs(),
                 )
                 paths["decoder"] = decoder_path
                 logger.info(f"Exported decoder to {decoder_path}")
