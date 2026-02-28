@@ -22,6 +22,7 @@ import torch
 from torch import nn
 
 from reactor_twin.core.base import AbstractNeuralDE
+from reactor_twin.exceptions import ValidationError
 from reactor_twin.utils.registry import NEURAL_DE_REGISTRY
 
 logger = logging.getLogger(__name__)
@@ -198,7 +199,7 @@ class NeuralCDE(AbstractNeuralDE):
             Predictions, shape (batch, num_times, output_dim).
         """
         if controls is None:
-            raise ValueError("Neural CDE requires 'controls' (observation sequence)")
+            raise ValidationError("Neural CDE requires 'controls' (observation sequence)")
 
         # Interpolate observations to get continuous control path
         if self.interpolation == "linear":

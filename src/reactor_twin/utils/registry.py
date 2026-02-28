@@ -11,6 +11,8 @@ import logging
 from collections.abc import Callable
 from typing import Any, TypeVar
 
+from reactor_twin.exceptions import RegistryError
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
@@ -75,7 +77,9 @@ class Registry:
         """
         if key not in self._registry:
             available = ", ".join(self._registry.keys())
-            raise KeyError(f"'{key}' not found in {self.name} registry. Available: {available}")
+            raise RegistryError(
+                f"'{key}' not found in {self.name} registry. Available: {available}"
+            )
         return self._registry[key]
 
     def list_keys(self) -> list[str]:

@@ -8,6 +8,8 @@ from abc import ABC, abstractmethod
 import torch
 from torch import nn
 
+from reactor_twin.exceptions import ValidationError
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,7 +36,7 @@ class AbstractConstraint(nn.Module, ABC):
         """
         super().__init__()
         if mode not in ("hard", "soft"):
-            raise ValueError(f"mode must be 'hard' or 'soft', got '{mode}'")
+            raise ValidationError(f"mode must be 'hard' or 'soft', got '{mode}'")
         self.name = name
         self.mode = mode
         self.weight = weight

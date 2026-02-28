@@ -1,6 +1,6 @@
 [project]
 name = "reactor-twin"
-version = "0.1.0"
+version = "0.2.0"
 description = "Physics-constrained Neural DEs for chemical reactor digital twins"
 authors = [{name = "Tubhyam Karthikeyan", email = "takarthikeyan25@gmail.com"}]
 requires-python = ">=3.10"

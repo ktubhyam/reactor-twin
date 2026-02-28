@@ -8,6 +8,8 @@ from abc import ABC, abstractmethod
 import torch
 from torch import nn
 
+from reactor_twin.exceptions import ValidationError
+
 logger = logging.getLogger(__name__)
 
 
@@ -91,7 +93,7 @@ class MLPODEFunc(AbstractODEFunc):
                 elif activation == "relu":
                     layers.append(nn.ReLU())
                 else:
-                    raise ValueError(f"Unknown activation: {activation}")
+                    raise ValidationError(f"Unknown activation: {activation}")
 
         self.net = nn.Sequential(*layers)
         logger.debug(

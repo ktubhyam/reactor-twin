@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 # Guard: skip entire module if fastapi is not installed
@@ -20,6 +22,7 @@ def client() -> TestClient:
 
 # ── Health check ─────────────────────────────────────────────────────
 
+
 class TestHealthCheck:
     """Tests for GET /health."""
 
@@ -33,6 +36,7 @@ class TestHealthCheck:
 
 
 # ── List reactors ───────────────────────────────────────────────────
+
 
 class TestListReactors:
     """Tests for GET /reactors."""
@@ -57,6 +61,7 @@ class TestListReactors:
 
 # ── Simulate ────────────────────────────────────────────────────────
 
+
 class TestSimulate:
     """Tests for POST /simulate/{reactor_name}."""
 
@@ -73,9 +78,11 @@ class TestSimulate:
         data = client.post("/simulate/exothermic_ab").json()
         assert data["success"] is True
 
-    def test_simulate_unknown_reactor_returns_error(self, client: TestClient) -> None:
-        data = client.post("/simulate/nonexistent_reactor").json()
-        assert "error" in data
+    def test_simulate_unknown_reactor_returns_404(self, client: TestClient) -> None:
+        response = client.post("/simulate/nonexistent_reactor")
+        assert response.status_code == 404
+        data = response.json()
+        assert "detail" in data
 
     def test_simulate_custom_parameters(self, client: TestClient) -> None:
         response = client.post(
@@ -107,3 +114,124 @@ class TestSimulate:
         data = client.post("/simulate/van_de_vusse").json()
         assert data["success"] is True
         assert "time" in data
+
+
+# ── Query parameter validation (422) ─────────────────────────────────
+
+
+class TestSimulateValidation:
+    """Invalid query parameters should return 422."""
+
+    def test_t_end_zero_returns_422(self, client: TestClient) -> None:
+        response = client.post(
+            "/simulate/exothermic_ab",
+            params={"t_end": 0.0},
+        )
+        assert response.status_code == 422
+
+    def test_t_end_negative_returns_422(self, client: TestClient) -> None:
+        response = client.post(
+            "/simulate/exothermic_ab",
+            params={"t_end": -5.0},
+        )
+        assert response.status_code == 422
+
+    def test_t_end_too_large_returns_422(self, client: TestClient) -> None:
+        response = client.post(
+            "/simulate/exothermic_ab",
+            params={"t_end": 2000.0},
+        )
+        assert response.status_code == 422
+
+    def test_num_points_one_returns_422(self, client: TestClient) -> None:
+        response = client.post(
+            "/simulate/exothermic_ab",
+            params={"num_points": 1},
+        )
+        assert response.status_code == 422
+
+    def test_num_points_too_large_returns_422(self, client: TestClient) -> None:
+        response = client.post(
+            "/simulate/exothermic_ab",
+            params={"num_points": 20000},
+        )
+        assert response.status_code == 422
+
+
+# ── WebSocket ────────────────────────────────────────────────────────
+
+
+class TestWebSocket:
+    """Tests for the /ws/simulate WebSocket endpoint."""
+
+    def test_websocket_connect_and_stream(self, client: TestClient) -> None:
+        with client.websocket_connect("/ws/simulate") as ws:
+            ws.send_json({
+                "reactor_name": "exothermic_ab",
+                "t_end": 1.0,
+                "num_points": 10,
+                "chunk_size": 5,
+            })
+            messages = []
+            while True:
+                msg = ws.receive_json()
+                messages.append(msg)
+                if "status" in msg and msg["status"] == "complete":
+                    break
+                if "error" in msg:
+                    break
+            # Should have 2 chunks + 1 completion
+            assert len(messages) >= 2
+            assert messages[-1]["status"] == "complete"
+            assert "labels" in messages[-1]
+
+    def test_websocket_unknown_reactor(self, client: TestClient) -> None:
+        with client.websocket_connect("/ws/simulate") as ws:
+            ws.send_json({"reactor_name": "nonexistent"})
+            msg = ws.receive_json()
+            assert "error" in msg
+
+    def test_websocket_invalid_json(self, client: TestClient) -> None:
+        with client.websocket_connect("/ws/simulate") as ws:
+            ws.send_text("not valid json {{{")
+            msg = ws.receive_json()
+            assert "error" in msg
+
+    def test_websocket_chunk_sizes(self, client: TestClient) -> None:
+        with client.websocket_connect("/ws/simulate") as ws:
+            ws.send_json({
+                "reactor_name": "exothermic_ab",
+                "t_end": 1.0,
+                "num_points": 20,
+                "chunk_size": 7,
+            })
+            chunks = []
+            while True:
+                msg = ws.receive_json()
+                if "chunk_index" in msg:
+                    chunks.append(msg)
+                if "status" in msg or "error" in msg:
+                    break
+            # 20 points / chunk_size 7 => 3 chunks (7+7+6)
+            assert len(chunks) == 3
+            assert len(chunks[0]["time"]) == 7
+            assert len(chunks[1]["time"]) == 7
+            assert len(chunks[2]["time"]) == 6
+
+    def test_websocket_completion_message(self, client: TestClient) -> None:
+        with client.websocket_connect("/ws/simulate") as ws:
+            ws.send_json({
+                "reactor_name": "van_de_vusse",
+                "t_end": 2.0,
+                "num_points": 10,
+                "chunk_size": 100,
+            })
+            messages = []
+            while True:
+                msg = ws.receive_json()
+                messages.append(msg)
+                if "status" in msg or "error" in msg:
+                    break
+            completion = messages[-1]
+            assert completion["status"] == "complete"
+            assert isinstance(completion["labels"], list)

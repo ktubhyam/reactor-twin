@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 # Version info
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Tubhyam Karthikeyan"
 __email__ = "takarthikeyan25@gmail.com"
 
@@ -15,6 +15,15 @@ from reactor_twin.digital_twin import (
     MPCController,
     OnlineAdapter,
     ReptileMetaLearner,
+)
+from reactor_twin.exceptions import (
+    ConfigurationError,
+    ConstraintViolationError,
+    ExportError,
+    ReactorTwinError,
+    RegistryError,
+    SolverError,
+    ValidationError,
 )
 from reactor_twin.physics import (
     AbstractConstraint,
@@ -31,7 +40,9 @@ from reactor_twin.reactors import (
     AbstractReactor,
     BatchReactor,
     CSTRReactor,
+    MultiPhaseReactor,
     PlugFlowReactor,
+    PopulationBalanceReactor,
     SemiBatchReactor,
 )
 from reactor_twin.reactors.kinetics import (
@@ -62,6 +73,14 @@ from reactor_twin.utils import (
 __all__ = [
     # Version
     "__version__",
+    # Exceptions
+    "ReactorTwinError",
+    "SolverError",
+    "ValidationError",
+    "ExportError",
+    "ConstraintViolationError",
+    "RegistryError",
+    "ConfigurationError",
     # Core Neural DEs
     "AbstractNeuralDE",
     "NeuralODE",
@@ -69,7 +88,9 @@ __all__ = [
     "AbstractReactor",
     "BatchReactor",
     "CSTRReactor",
+    "MultiPhaseReactor",
     "PlugFlowReactor",
+    "PopulationBalanceReactor",
     "SemiBatchReactor",
     # Benchmark Systems
     "create_bioreactor_cstr",

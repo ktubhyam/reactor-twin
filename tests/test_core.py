@@ -256,7 +256,9 @@ class TestMLPODEFunc:
         assert len(activations) == 2
 
     def test_unknown_activation_raises(self):
-        with pytest.raises(ValueError, match="Unknown activation"):
+        from reactor_twin.exceptions import ValidationError
+
+        with pytest.raises(ValidationError, match="Unknown activation"):
             MLPODEFunc(
                 state_dim=STATE_DIM,
                 hidden_dim=HIDDEN_DIM,

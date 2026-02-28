@@ -46,9 +46,11 @@ def _seeded_randn(*shape: int) -> torch.Tensor:
 class TestAbstractConstraint:
     """Tests for the AbstractConstraint base class."""
 
-    def test_invalid_mode_raises_value_error(self):
+    def test_invalid_mode_raises_validation_error(self):
         """Providing a mode other than 'hard' or 'soft' should raise."""
-        with pytest.raises(ValueError, match="mode must be 'hard' or 'soft'"):
+        from reactor_twin.exceptions import ValidationError
+
+        with pytest.raises(ValidationError, match="mode must be 'hard' or 'soft'"):
             PositivityConstraint(name="bad", mode="invalid")
 
     def test_hard_mode_stores_attributes(self):

@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from reactor_twin.exceptions import ConfigurationError
 from reactor_twin.reactors import (
     BatchReactor,
     CSTRReactor,
@@ -401,7 +402,7 @@ class TestCSTRReactor:
     # -- Parameter validation --
 
     def test_missing_required_param_V(self):
-        with pytest.raises(ValueError, match="Missing required parameter"):
+        with pytest.raises(ConfigurationError, match="Missing required parameter"):
             CSTRReactor(
                 name="bad",
                 num_species=2,
@@ -410,7 +411,7 @@ class TestCSTRReactor:
             )
 
     def test_missing_required_param_F(self):
-        with pytest.raises(ValueError, match="Missing required parameter"):
+        with pytest.raises(ConfigurationError, match="Missing required parameter"):
             CSTRReactor(
                 name="bad",
                 num_species=2,
@@ -419,7 +420,7 @@ class TestCSTRReactor:
             )
 
     def test_missing_required_param_C_feed(self):
-        with pytest.raises(ValueError, match="Missing required parameter"):
+        with pytest.raises(ConfigurationError, match="Missing required parameter"):
             CSTRReactor(
                 name="bad",
                 num_species=2,
@@ -428,7 +429,7 @@ class TestCSTRReactor:
             )
 
     def test_missing_required_param_T_feed(self):
-        with pytest.raises(ValueError, match="Missing required parameter"):
+        with pytest.raises(ConfigurationError, match="Missing required parameter"):
             CSTRReactor(
                 name="bad",
                 num_species=2,
@@ -438,7 +439,7 @@ class TestCSTRReactor:
 
     def test_missing_thermo_param_nonisothermal(self):
         """Non-isothermal CSTR requires rho, Cp, UA, T_coolant."""
-        with pytest.raises(ValueError, match="Non-isothermal CSTR requires"):
+        with pytest.raises(ConfigurationError, match="Non-isothermal CSTR requires"):
             CSTRReactor(
                 name="bad",
                 num_species=2,
@@ -592,7 +593,7 @@ class TestBatchReactor:
     # -- Parameter validation --
 
     def test_missing_required_param_V(self):
-        with pytest.raises(ValueError, match="Missing required parameter"):
+        with pytest.raises(ConfigurationError, match="Missing required parameter"):
             BatchReactor(
                 name="bad",
                 num_species=2,
@@ -600,7 +601,7 @@ class TestBatchReactor:
             )
 
     def test_missing_required_param_T(self):
-        with pytest.raises(ValueError, match="Missing required parameter"):
+        with pytest.raises(ConfigurationError, match="Missing required parameter"):
             BatchReactor(
                 name="bad",
                 num_species=2,
@@ -609,7 +610,7 @@ class TestBatchReactor:
 
     def test_missing_thermo_param_nonisothermal(self):
         """Non-isothermal batch requires rho, Cp."""
-        with pytest.raises(ValueError, match="Non-isothermal batch reactor requires"):
+        with pytest.raises(ConfigurationError, match="Non-isothermal batch reactor requires"):
             BatchReactor(
                 name="bad",
                 num_species=2,
@@ -730,7 +731,7 @@ class TestSemiBatchReactor:
     # -- Parameter validation --
 
     def test_missing_required_param_F_in(self):
-        with pytest.raises(ValueError, match="Missing required parameter"):
+        with pytest.raises(ConfigurationError, match="Missing required parameter"):
             SemiBatchReactor(
                 name="bad",
                 num_species=2,
@@ -738,7 +739,7 @@ class TestSemiBatchReactor:
             )
 
     def test_missing_required_param_C_in(self):
-        with pytest.raises(ValueError, match="Missing required parameter"):
+        with pytest.raises(ConfigurationError, match="Missing required parameter"):
             SemiBatchReactor(
                 name="bad",
                 num_species=2,
@@ -747,7 +748,7 @@ class TestSemiBatchReactor:
 
     def test_missing_thermo_nonisothermal(self):
         """Non-isothermal semi-batch requires rho, Cp, T_in."""
-        with pytest.raises(ValueError, match="Non-isothermal semi-batch"):
+        with pytest.raises(ConfigurationError, match="Non-isothermal semi-batch"):
             SemiBatchReactor(
                 name="bad",
                 num_species=2,
@@ -883,7 +884,7 @@ class TestPlugFlowReactor:
     # -- Parameter validation --
 
     def test_missing_required_param_L(self):
-        with pytest.raises(ValueError, match="Missing required parameter"):
+        with pytest.raises(ConfigurationError, match="Missing required parameter"):
             PlugFlowReactor(
                 name="bad",
                 num_species=2,
@@ -891,7 +892,7 @@ class TestPlugFlowReactor:
             )
 
     def test_missing_required_param_u(self):
-        with pytest.raises(ValueError, match="Missing required parameter"):
+        with pytest.raises(ConfigurationError, match="Missing required parameter"):
             PlugFlowReactor(
                 name="bad",
                 num_species=2,

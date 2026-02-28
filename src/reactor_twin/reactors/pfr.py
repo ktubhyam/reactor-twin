@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from reactor_twin.exceptions import ConfigurationError
 from reactor_twin.reactors.base import AbstractReactor
 from reactor_twin.reactors.kinetics.base import AbstractKinetics
 from reactor_twin.utils.registry import REACTOR_REGISTRY
@@ -74,7 +75,7 @@ class PlugFlowReactor(AbstractReactor):
         required = ["L", "u", "D", "C_in", "T"]
         for key in required:
             if key not in params:
-                raise ValueError(f"Missing required parameter: {key}")
+                raise ConfigurationError(f"Missing required parameter: {key}")
 
         self.length = params["L"]
         self.velocity = params["u"]

@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from reactor_twin.exceptions import ConfigurationError
 from reactor_twin.reactors.base import AbstractReactor
 from reactor_twin.reactors.kinetics.base import AbstractKinetics
 from reactor_twin.utils.registry import REACTOR_REGISTRY
@@ -64,13 +65,13 @@ class CSTRReactor(AbstractReactor):
         required = ["V", "F", "C_feed", "T_feed"]
         for key in required:
             if key not in params:
-                raise ValueError(f"Missing required parameter: {key}")
+                raise ConfigurationError(f"Missing required parameter: {key}")
 
         if not isothermal:
             required_thermo = ["rho", "Cp", "UA", "T_coolant"]
             for key in required_thermo:
                 if key not in params:
-                    raise ValueError(f"Non-isothermal CSTR requires parameter: {key}")
+                    raise ConfigurationError(f"Non-isothermal CSTR requires parameter: {key}")
 
     def _compute_state_dim(self) -> int:
         """Compute state dimension.

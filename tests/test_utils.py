@@ -33,8 +33,10 @@ class TestRegistry:
         assert reg.get("my_class") is MyClass
 
     def test_get_missing_key_raises(self):
+        from reactor_twin.exceptions import RegistryError
+
         reg = Registry("test")
-        with pytest.raises(KeyError, match="not found"):
+        with pytest.raises(RegistryError, match="not found"):
             reg.get("nonexistent")
 
     def test_list_keys(self):
