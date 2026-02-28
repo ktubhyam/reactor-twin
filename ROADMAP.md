@@ -303,19 +303,75 @@ Ready for industrial deployment.
 
 ---
 
+## Post-1.0 Roadmap
+
+Released v1.0.0 in Feb 2026 — 9 months ahead of the original Dec 2026 target.
+Focus shifts to research validation, paper submissions, and advanced scientific features.
+
+---
+
+### v1.1.0 — Research & Paper Support (Target: Jun 2026)
+
+**Goal:** Generate ablation data and comparison benchmarks for workshop paper.
+
+#### Research Features
+- **Ablation scripts** — hard vs soft constraint comparison, solver ablations (euler/rk4/dopri5), adjoint vs direct backprop memory profile
+- **Library benchmarks** — head-to-head with DeepXDE, PyDMD, TorchDyn on shared CSTR/PFR benchmarks; results table for paper
+- **Supplementary tooling** — training curve export, hyperparameter sensitivity scripts, constraint violation tracking during training
+
+#### Production Polish
+- **Prometheus endpoint** — `/metrics` for Kubernetes monitoring (request count, latency, ODE solve time)
+- **AWS SageMaker** — inference endpoint deployment via SageMaker SDK
+- **SALib 1.5+ migration** — saltelli → sobol sampler (deprecation warning fix already landed; ensure compatibility with SALib 1.5.1+)
+- **ONNX for NeuralSDE/CDE** — currently unsupported; fixed-step export (Euler diffusion rollout)
+
+#### Quality
+- Mypy strict pass on all modules
+- Example validation in CI — run all 15 example scripts as smoke tests
+
+---
+
+### v1.2.0 — Advanced Scientific Features (Target: Sep 2026)
+
+**Goal:** Push scientific frontier; material for main conference paper.
+
+#### New Features
+- **Symbolic regression integration** — PySR discovers kinetic rate laws from trained Neural ODE residuals; validation against Arrhenius/Michaelis-Menten forms
+- **Physics-informed initialization** — warm-start Neural ODE weights from analytical CSTR/PFR steady-state; faster convergence on standard benchmarks
+- **Graph Neural ODE** — interconnected reactor network (multiple CSTRs in series/parallel) with shared latent dynamics
+- **React dashboard** — replaces Streamlit; TypeScript + D3.js + WebSocket; embeds in tubhyam.dev
+
+#### Quality
+- Coverage: 95%+
+- Notebook execution in CI (papermill)
+- Load testing: Locust benchmarks for API v2
+
+---
+
+### v2.0.0 — Foundation Model (Target: 2027)
+
+**Goal:** Pre-trained model for zero-shot reactor prediction.
+
+- Pre-train on 100+ diverse reactor simulations (exothermic, bioreactor, PFR, membrane, fluidized bed, crystallization)
+- Fine-tune on specific reactor with 10–50 observations (builds on Reptile meta-learner)
+- Hosted inference API — no local model needed
+- Paper: JMLR or ACM TOMS — full library + real data + foundation model
+
+---
+
 ## Paper Strategy
 
-### Why Publish at v0.2, Not v1.0
+### Current Status
 
-Most successful ML libraries (scikit-learn, DeepXDE, torchdiffeq, TorchDyn) published papers at v0.x. The physics-informed Neural ODE space is actively publishing (2023-2025) — the competitive window is closing. v1.0 adds production features (Docker, k8s, cloud) that don't strengthen a research paper. Early paper means more citations, more contributors, faster maturity.
+v1.0.0 shipped Feb 2026 — 9 months ahead of target. The library is now complete enough to support a full research paper. Original plan was to publish at v0.2; the competitive window is the same but we now have a stronger empirical story (7 constraints, 8 reactors, full digital twin stack, 1477 tests).
 
 ### Publishing Timeline
 
 | When | Target | What |
 |------|--------|------|
-| **v0.2 (Apr 2026)** | NeurIPS/ICML Workshop | 4-page paper: hard constraint architecture + 5 benchmarks + digital twin demo |
-| **v0.3 (Jul 2026)** | ICML 2027 / NeurIPS 2026 Main | 8-page paper: + Bayesian, symbolic regression, ablation studies, theoretical guarantees |
-| **v0.4 (Oct 2026)** | JMLR or ACM TOMS | Full journal paper: complete library + real data validation + scalability analysis |
+| **Mar–Apr 2026** | NeurIPS 2026 Workshop / ML4PS | 4-page paper: hard constraint architecture, 5 benchmarks, digital twin demo |
+| **May–Aug 2026** | ICLR 2027 / ICML 2027 | 8-page paper: + Bayesian, symbolic regression, ablation studies, theoretical convergence |
+| **2027** | JMLR or ACM TOMS | Full journal: complete library + real data validation + foundation model |
 
 ### ReactorTwin's Unique Contributions
 

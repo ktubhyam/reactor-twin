@@ -16,7 +16,7 @@ try:
     from SALib.analyze import morris as morris_analyze
     from SALib.analyze import sobol as sobol_analyze
     from SALib.sample import morris as morris_sample
-    from SALib.sample import saltelli
+    from SALib.sample import sobol as saltelli
 
     SALIB_AVAILABLE = True
 except ImportError:
