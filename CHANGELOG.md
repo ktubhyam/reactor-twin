@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-01
+
+### Added
+- Prometheus `/metrics` endpoint (`reactor_twin[api]`) — request counts, latency histograms, ODE solve time, active WebSocket session gauge
+- AWS SageMaker inference module (`reactor_twin.deploy.sagemaker`) — `model_fn`, `input_fn`, `predict_fn`, `output_fn`, `pack_model_tar`
+- ONNX partial export for `NeuralSDE` (drift function only) and `NeuralCDE` (CDE vector field only)
+- CI coverage-gaps job — runs `test_coverage_gaps.py` with 5-minute timeout, uploads to Codecov separately
+
+### Changed
+- `deploy` extra now includes `boto3>=1.34`
+- `api` extra now includes `prometheus-client>=0.19`
+
+### Fixed
+- mypy strict: eliminated all 352 type errors across 54 source files
+  - Added `ignore_missing_imports` overrides for all untyped third-party deps
+  - Added `ignore_errors` override for dashboard pages
+  - `np.ndarray` → `npt.NDArray[Any]` throughout
+  - `cast(torch.Tensor, ...)` on all torchdiffeq/torchsde/torchcde return sites
+  - Type-widened attributes in NeuralSDE, LatentNeuralODE, HybridNeuralODE, trainer classes
+
 ## [1.0.0] - 2026-02-28
 
 ### Added — Production Release (v1.0.0)
