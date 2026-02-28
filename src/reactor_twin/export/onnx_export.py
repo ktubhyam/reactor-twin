@@ -35,6 +35,122 @@ class _ODEFuncWrapper(nn.Module):
         return self.ode_func(t, z)
 
 
+def _export_sde_drift(
+    model: nn.Module,
+    output_dir: Path,
+    opset_version: int,
+    validate: bool,
+) -> dict[str, Path]:
+    """Export NeuralSDE drift function only (deterministic approximation).
+
+    The diffusion term cannot be traced to ONNX. This exports a deterministic
+    mean-field approximation suitable for deployment where uncertainty is not needed.
+
+    Args:
+        model: NeuralSDE instance.
+        output_dir: Directory to write ONNX files.
+        opset_version: ONNX opset version.
+        validate: If True, validate the exported model.
+
+    Returns:
+        Dict mapping 'drift_fn' to the exported ONNX path.
+    """
+    import onnx
+
+    logger.warning(
+        "NeuralSDE: exporting drift function only. "
+        "Diffusion (stochastic) term cannot be traced to ONNX. "
+        "This is a deterministic approximation."
+    )
+
+    drift_func = model.sde_func.drift_func  # type: ignore[attr-defined]
+    state_dim = drift_func.state_dim
+    wrapper = _ODEFuncWrapper(drift_func)
+    wrapper.eval()
+
+    drift_path = output_dir / "drift_fn.onnx"
+    dummy_t = torch.tensor(0.0)
+    dummy_z = torch.randn(1, state_dim)
+
+    try:
+        torch.onnx.export(
+            wrapper,
+            (dummy_t, dummy_z),
+            str(drift_path),
+            opset_version=opset_version,
+            input_names=["t", "z"],
+            output_names=["dz_dt"],
+            dynamic_axes={"z": {0: "batch"}, "dz_dt": {0: "batch"}},
+            **_onnx_export_kwargs(),
+        )
+    except Exception as exc:
+        raise ExportError(f"Failed to export NeuralSDE drift_fn: {exc}") from exc
+
+    if validate:
+        onnx.checker.check_model(onnx.load(str(drift_path)))
+
+    paths = {"drift_fn": drift_path}
+    logger.info(f"Exported NeuralSDE drift_fn to {drift_path}")
+    return paths
+
+
+def _export_cde_func(
+    model: nn.Module,
+    output_dir: Path,
+    opset_version: int,
+    validate: bool,
+) -> dict[str, Path]:
+    """Export NeuralCDE vector field function only.
+
+    Control path interpolation (torchcde) cannot be traced to ONNX. This exports
+    the neural network f_theta(z) that computes the vector field matrix.
+
+    Args:
+        model: NeuralCDE instance.
+        output_dir: Directory to write ONNX files.
+        opset_version: ONNX opset version.
+        validate: If True, validate the exported model.
+
+    Returns:
+        Dict mapping 'cde_func' to the exported ONNX path.
+    """
+    import onnx
+
+    logger.warning(
+        "NeuralCDE: exporting cde_func (vector field) only. "
+        "Control path interpolation stays in Python. "
+        "The exported network computes f_theta(z) -> (state_dim, input_dim) matrix."
+    )
+
+    cde_func = model.cde_func  # type: ignore[attr-defined]
+    state_dim: int = model.state_dim  # type: ignore[attr-defined]
+    cde_path = output_dir / "cde_func.onnx"
+
+    dummy_t = torch.tensor(0.0)
+    dummy_z = torch.randn(1, state_dim)
+
+    try:
+        torch.onnx.export(
+            cde_func,
+            (dummy_t, dummy_z),
+            str(cde_path),
+            opset_version=opset_version,
+            input_names=["t", "z"],
+            output_names=["f_theta"],
+            dynamic_axes={"z": {0: "batch"}, "f_theta": {0: "batch"}},
+            **_onnx_export_kwargs(),
+        )
+    except Exception as exc:
+        raise ExportError(f"Failed to export NeuralCDE cde_func: {exc}") from exc
+
+    if validate:
+        onnx.checker.check_model(onnx.load(str(cde_path)))
+
+    paths = {"cde_func": cde_path}
+    logger.info(f"Exported NeuralCDE cde_func to {cde_path}")
+    return paths
+
+
 class ONNXExporter:
     """Static methods for exporting Neural DE models to ONNX format."""
 
@@ -51,7 +167,10 @@ class ONNXExporter:
             - NeuralODE -> exports ode_func (1 file)
             - LatentNeuralODE -> exports ode_func + encoder + decoder (3 files)
             - AugmentedNeuralODE -> exports ode_func (1 file, augmented state)
-            - NeuralSDE / NeuralCDE -> raises ExportError (not supported in v0.2)
+            - NeuralSDE -> partial export: drift_fn only (deterministic approximation,
+              diffusion/stochastic term cannot be traced). Returns {'drift_fn': path}.
+            - NeuralCDE -> partial export: cde_func only (control path interpolation
+              stays in Python). Returns {'cde_func': path}.
 
         Args:
             model: A Neural DE model instance.
@@ -79,11 +198,11 @@ class ONNXExporter:
         class_name = type(model).__name__
         paths: dict[str, Path] = {}
 
-        if class_name in ("NeuralSDE", "NeuralCDE"):
-            raise ExportError(
-                f"{class_name} export is not supported in v0.2. "
-                "Only NeuralODE, LatentNeuralODE, and AugmentedNeuralODE are supported."
-            )
+        if class_name == "NeuralSDE":
+            return _export_sde_drift(model, output_dir, opset_version, validate)
+
+        if class_name == "NeuralCDE":
+            return _export_cde_func(model, output_dir, opset_version, validate)
 
         if not hasattr(model, "ode_func"):
             raise ExportError(f"Model {class_name} does not have an 'ode_func' attribute.")

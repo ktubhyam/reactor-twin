@@ -77,13 +77,25 @@ class TestONNXExport:
         for p in paths.values():
             assert p.exists()
 
-    def test_export_sde_raises(self, tmp_export_dir):
+    def test_export_sde_partial(self, tmp_export_dir):
         pytest.importorskip("torchsde")
         from reactor_twin.core.neural_sde import NeuralSDE
 
         model = NeuralSDE(state_dim=3)
-        with pytest.raises(ExportError, match="not supported"):
-            ONNXExporter.export(model, tmp_export_dir)
+        paths = ONNXExporter.export(model, tmp_export_dir)
+        assert "drift_fn" in paths
+        assert paths["drift_fn"].exists()
+
+    def test_export_cde_partial(self, tmp_path):
+        pytest.importorskip("torchcde")
+        from reactor_twin.core.neural_cde import NeuralCDE
+
+        model = NeuralCDE(state_dim=4, input_dim=2)
+        out_dir = tmp_path / "cde_export"
+        out_dir.mkdir()
+        paths = ONNXExporter.export(model, out_dir)
+        assert "cde_func" in paths
+        assert paths["cde_func"].exists()
 
     def test_export_creates_directory(self, neural_ode, tmp_path):
         new_dir = tmp_path / "new_subdir" / "export"
