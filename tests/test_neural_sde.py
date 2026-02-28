@@ -10,7 +10,6 @@ torchsde = pytest.importorskip("torchsde")
 from reactor_twin.core.neural_sde import NeuralSDE, SDEFunc
 from reactor_twin.core.ode_func import MLPODEFunc
 
-
 # ── Helpers ──────────────────────────────────────────────────────────
 
 def _make_drift(state_dim: int = 3) -> MLPODEFunc:

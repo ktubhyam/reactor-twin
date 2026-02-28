@@ -10,7 +10,6 @@ torchcde = pytest.importorskip("torchcde")
 from reactor_twin.core.neural_cde import CDEFunc, NeuralCDE
 from reactor_twin.exceptions import ValidationError
 
-
 # ══════════════════════════════════════════════════════════════════════
 # CDEFunc Tests
 # ══════════════════════════════════════════════════════════════════════

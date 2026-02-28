@@ -16,7 +16,6 @@ from reactor_twin.reactors.kinetics import (
 )
 from reactor_twin.utils.constants import R_GAS
 
-
 # ===========================================================================
 # Fixtures
 # ===========================================================================
@@ -529,6 +528,50 @@ class TestMichaelisMentenKinetics:
     def test_validate_parameters_valid(self, mm_kinetics):
         assert mm_kinetics.validate_parameters() is True
 
+    def test_validate_parameters_negative_vmax(self):
+        """V_max must be positive."""
+        kin = MichaelisMentenKinetics(
+            name="bad_vmax",
+            num_reactions=1,
+            params={
+                "V_max": np.array([-10.0]),
+                "K_m": np.array([0.5]),
+                "substrate_indices": np.array([0]),
+                "stoich": np.array([[-1, 1]]),
+            },
+        )
+        assert kin.validate_parameters() is False
+
+    def test_validate_parameters_negative_km(self):
+        """K_m must be positive."""
+        kin = MichaelisMentenKinetics(
+            name="bad_km",
+            num_reactions=1,
+            params={
+                "V_max": np.array([10.0]),
+                "K_m": np.array([-0.5]),
+                "substrate_indices": np.array([0]),
+                "stoich": np.array([[-1, 1]]),
+            },
+        )
+        assert kin.validate_parameters() is False
+
+    def test_validate_parameters_negative_ki(self):
+        """K_i must be positive when inhibitor_indices is provided."""
+        kin = MichaelisMentenKinetics(
+            name="bad_ki",
+            num_reactions=1,
+            params={
+                "V_max": np.array([10.0]),
+                "K_m": np.array([0.5]),
+                "substrate_indices": np.array([0]),
+                "stoich": np.array([[-1, 1, 0]]),
+                "K_i": np.array([-1.0]),
+                "inhibitor_indices": np.array([2]),
+            },
+        )
+        assert kin.validate_parameters() is False
+
     # -- Serialization --
 
     def test_to_dict(self, mm_kinetics):
@@ -647,6 +690,36 @@ class TestPowerLawKinetics:
                 "k": np.array([-0.5]),
                 "orders": np.array([[1.0, 0.0]]),
                 "stoich": np.array([[-1, 1]]),
+            },
+        )
+        assert kin.validate_parameters() is False
+
+    def test_validate_parameters_negative_A(self):
+        """A must be positive when provided."""
+        kin = PowerLawKinetics(
+            name="bad_A",
+            num_reactions=1,
+            params={
+                "k": np.array([1.0]),
+                "orders": np.array([[1.0, 0.0]]),
+                "stoich": np.array([[-1, 1]]),
+                "A": np.array([-1e8]),
+                "E_a": np.array([40000.0]),
+            },
+        )
+        assert kin.validate_parameters() is False
+
+    def test_validate_parameters_negative_Ea(self):
+        """E_a must be non-negative when provided."""
+        kin = PowerLawKinetics(
+            name="bad_Ea",
+            num_reactions=1,
+            params={
+                "k": np.array([1.0]),
+                "orders": np.array([[1.0, 0.0]]),
+                "stoich": np.array([[-1, 1]]),
+                "A": np.array([1e8]),
+                "E_a": np.array([-1.0]),
             },
         )
         assert kin.validate_parameters() is False
@@ -777,6 +850,100 @@ class TestLangmuirHinshelwoodKinetics:
         config = lh_kinetics.to_dict()
         restored = LangmuirHinshelwoodKinetics.from_dict(config)
         assert restored.name == lh_kinetics.name
+
+    # -- Temperature dependence --
+
+    def test_temperature_dependent_rate(self):
+        """LH with Arrhenius temperature dependence (A and E_a)."""
+        kin = LangmuirHinshelwoodKinetics(
+            name="lh_temp",
+            num_reactions=1,
+            params={
+                "k": np.array([1.0]),
+                "K_ads": np.array([[5.0, 0.0]]),
+                "orders_num": np.array([[1, 0]]),
+                "orders_den": np.array([1]),
+                "stoich": np.array([[-1, 1]]),
+                "A": np.array([1e8]),
+                "E_a": np.array([50000.0]),
+            },
+        )
+        conc = np.array([1.0, 0.0])
+        rate_300 = kin.compute_rates(conc, temperature=300.0)
+        rate_400 = kin.compute_rates(conc, temperature=400.0)
+        # Higher temperature -> faster rate
+        assert np.abs(rate_400[1]) > np.abs(rate_300[1])
+
+    def test_validate_negative_A(self):
+        """A must be positive."""
+        kin = LangmuirHinshelwoodKinetics(
+            name="lh_bad_A",
+            num_reactions=1,
+            params={
+                "k": np.array([1.0]),
+                "K_ads": np.array([[1.0, 0.0]]),
+                "orders_num": np.array([[1, 0]]),
+                "orders_den": np.array([1]),
+                "stoich": np.array([[-1, 1]]),
+                "A": np.array([-1.0]),
+                "E_a": np.array([50000.0]),
+            },
+        )
+        assert kin.validate_parameters() is False
+
+    def test_validate_negative_Ea(self):
+        """E_a must be non-negative."""
+        kin = LangmuirHinshelwoodKinetics(
+            name="lh_bad_Ea",
+            num_reactions=1,
+            params={
+                "k": np.array([1.0]),
+                "K_ads": np.array([[1.0, 0.0]]),
+                "orders_num": np.array([[1, 0]]),
+                "orders_den": np.array([1]),
+                "stoich": np.array([[-1, 1]]),
+                "A": np.array([1e8]),
+                "E_a": np.array([-1.0]),
+            },
+        )
+        assert kin.validate_parameters() is False
+
+    def test_validate_negative_K_ads(self):
+        """K_ads must be non-negative."""
+        kin = LangmuirHinshelwoodKinetics(
+            name="lh_bad_Kads",
+            num_reactions=1,
+            params={
+                "k": np.array([1.0]),
+                "K_ads": np.array([[-1.0, 0.0]]),
+                "orders_num": np.array([[1, 0]]),
+                "orders_den": np.array([1]),
+                "stoich": np.array([[-1, 1]]),
+            },
+        )
+        assert kin.validate_parameters() is False
+
+    def test_validate_negative_orders_den(self):
+        """orders_den must be positive."""
+        kin = LangmuirHinshelwoodKinetics(
+            name="lh_bad_den",
+            num_reactions=1,
+            params={
+                "k": np.array([1.0]),
+                "K_ads": np.array([[1.0, 0.0]]),
+                "orders_num": np.array([[1, 0]]),
+                "orders_den": np.array([-1]),
+                "stoich": np.array([[-1, 1]]),
+            },
+        )
+        assert kin.validate_parameters() is False
+
+    def test_dual_site_with_inhibition(self, lh_kinetics_dual_site):
+        """Dual-site mechanism has denominator exponent=2, should still compute."""
+        conc = np.array([1.0, 0.5])
+        rates = lh_kinetics_dual_site.compute_rates(conc, temperature=300.0)
+        assert rates.shape == (2,)
+        assert np.all(np.isfinite(rates))
 
 
 # ===========================================================================
@@ -940,6 +1107,92 @@ class TestReversibleKinetics:
                 "orders_f": np.array([[1.0, 0.0]]),
                 "orders_r": np.array([[0.0, 1.0]]),
                 "stoich": np.array([[-1, 1]]),
+            },
+        )
+        assert kin.validate_parameters() is False
+
+    def test_validate_parameters_negative_keq(self):
+        """K_eq must be positive when provided."""
+        # Create with valid K_eq, then override to negative to bypass k_r check
+        kin = ReversibleKinetics(
+            name="bad_keq",
+            num_reactions=1,
+            params={
+                "k_f": np.array([1.0]),
+                "K_eq": np.array([2.0]),
+                "orders_f": np.array([[1.0, 0.0]]),
+                "orders_r": np.array([[0.0, 1.0]]),
+                "stoich": np.array([[-1, 1]]),
+            },
+        )
+        # Override K_eq to negative after construction (k_r remains valid)
+        kin.K_eq = np.array([-2.0])
+        assert kin.validate_parameters() is False
+
+    def test_validate_parameters_negative_A_f(self):
+        """A_f must be positive when provided."""
+        kin = ReversibleKinetics(
+            name="bad_Af",
+            num_reactions=1,
+            params={
+                "k_f": np.array([1.0]),
+                "k_r": np.array([0.5]),
+                "orders_f": np.array([[1.0, 0.0]]),
+                "orders_r": np.array([[0.0, 1.0]]),
+                "stoich": np.array([[-1, 1]]),
+                "A_f": np.array([-1e8]),
+                "E_a_f": np.array([50000.0]),
+            },
+        )
+        assert kin.validate_parameters() is False
+
+    def test_validate_parameters_negative_E_a_f(self):
+        """E_a_f must be non-negative when provided."""
+        kin = ReversibleKinetics(
+            name="bad_Eaf",
+            num_reactions=1,
+            params={
+                "k_f": np.array([1.0]),
+                "k_r": np.array([0.5]),
+                "orders_f": np.array([[1.0, 0.0]]),
+                "orders_r": np.array([[0.0, 1.0]]),
+                "stoich": np.array([[-1, 1]]),
+                "A_f": np.array([1e8]),
+                "E_a_f": np.array([-1000.0]),
+            },
+        )
+        assert kin.validate_parameters() is False
+
+    def test_validate_parameters_negative_A_r(self):
+        """A_r must be positive when provided."""
+        kin = ReversibleKinetics(
+            name="bad_Ar",
+            num_reactions=1,
+            params={
+                "k_f": np.array([1.0]),
+                "k_r": np.array([0.5]),
+                "orders_f": np.array([[1.0, 0.0]]),
+                "orders_r": np.array([[0.0, 1.0]]),
+                "stoich": np.array([[-1, 1]]),
+                "A_r": np.array([-5e7]),
+                "E_a_r": np.array([60000.0]),
+            },
+        )
+        assert kin.validate_parameters() is False
+
+    def test_validate_parameters_negative_E_a_r(self):
+        """E_a_r must be non-negative when provided."""
+        kin = ReversibleKinetics(
+            name="bad_Ear",
+            num_reactions=1,
+            params={
+                "k_f": np.array([1.0]),
+                "k_r": np.array([0.5]),
+                "orders_f": np.array([[1.0, 0.0]]),
+                "orders_r": np.array([[0.0, 1.0]]),
+                "stoich": np.array([[-1, 1]]),
+                "A_r": np.array([5e7]),
+                "E_a_r": np.array([-1.0]),
             },
         )
         assert kin.validate_parameters() is False
@@ -1226,6 +1479,257 @@ class TestKineticsRegistry:
 # ===========================================================================
 # R_GAS constant test
 # ===========================================================================
+
+
+class TestAbstractKineticsBase:
+    """Tests for AbstractKinetics base class default/abstract methods."""
+
+    def test_compute_rates_not_implemented(self):
+        """Abstract compute_rates raises NotImplementedError via super()."""
+        from reactor_twin.reactors.kinetics.base import AbstractKinetics
+
+        class MinimalKinetics(AbstractKinetics):
+            def compute_rates(self, concentrations, temperature):
+                return super().compute_rates(concentrations, temperature)
+
+            @classmethod
+            def from_dict(cls, config):
+                return super().from_dict(config)
+
+        kin = MinimalKinetics.__new__(MinimalKinetics)
+        kin.name = "test"
+        kin.num_reactions = 1
+        kin.params = {}
+        with pytest.raises(NotImplementedError, match="compute_rates"):
+            kin.compute_rates(np.array([1.0]), 300.0)
+
+    def test_validate_parameters_default_returns_true(self):
+        """Default validate_parameters returns True (no validation)."""
+        from reactor_twin.reactors.kinetics.base import AbstractKinetics
+
+        class MinimalKinetics(AbstractKinetics):
+            def compute_rates(self, concentrations, temperature):
+                return np.zeros(1)
+
+            @classmethod
+            def from_dict(cls, config):
+                raise NotImplementedError
+
+        kin = MinimalKinetics.__new__(MinimalKinetics)
+        kin.name = "test"
+        kin.num_reactions = 1
+        kin.params = {}
+        assert kin.validate_parameters() is True
+
+    def test_from_dict_not_implemented(self):
+        """Abstract from_dict raises NotImplementedError via super()."""
+        from reactor_twin.reactors.kinetics.base import AbstractKinetics
+
+        class MinimalKinetics(AbstractKinetics):
+            def compute_rates(self, concentrations, temperature):
+                return np.zeros(1)
+
+            @classmethod
+            def from_dict(cls, config):
+                return super().from_dict(config)
+
+        with pytest.raises(NotImplementedError, match="from_dict"):
+            MinimalKinetics.from_dict({})
+
+    def test_to_dict(self):
+        """Default to_dict returns proper dictionary."""
+        from reactor_twin.reactors.kinetics.base import AbstractKinetics
+
+        class MinimalKinetics(AbstractKinetics):
+            def compute_rates(self, concentrations, temperature):
+                return np.zeros(1)
+
+            @classmethod
+            def from_dict(cls, config):
+                raise NotImplementedError
+
+        kin = MinimalKinetics.__new__(MinimalKinetics)
+        kin.name = "test"
+        kin.num_reactions = 1
+        kin.params = {"k": 1.0}
+        d = kin.to_dict()
+        assert d["name"] == "test"
+        assert d["type"] == "MinimalKinetics"
+        assert d["num_reactions"] == 1
+
+    def test_compute_reaction_rates_default(self):
+        """Default compute_reaction_rates delegates to compute_rates."""
+        from reactor_twin.reactors.kinetics.base import AbstractKinetics
+
+        class MinimalKinetics(AbstractKinetics):
+            def compute_rates(self, concentrations, temperature):
+                return concentrations * 2.0
+
+            @classmethod
+            def from_dict(cls, config):
+                raise NotImplementedError
+
+        kin = MinimalKinetics.__new__(MinimalKinetics)
+        kin.name = "test"
+        kin.num_reactions = 1
+        kin.params = {}
+        C = np.array([1.0, 2.0])
+        result = kin.compute_reaction_rates(C, 300.0)
+        expected = C * 2.0
+        np.testing.assert_array_equal(result, expected)
+
+
+class TestAbstractReactorBase:
+    """Tests for AbstractReactor base class abstract methods."""
+
+    def test_compute_state_dim_not_implemented(self):
+        """Abstract _compute_state_dim raises NotImplementedError."""
+        from reactor_twin.reactors.base import AbstractReactor
+
+        class MinimalReactor(AbstractReactor):
+            def _compute_state_dim(self):
+                return super()._compute_state_dim()
+
+            def ode_rhs(self, t, y, u=None):
+                raise NotImplementedError
+
+            def get_initial_state(self):
+                raise NotImplementedError
+
+            def get_state_labels(self):
+                raise NotImplementedError
+
+            @classmethod
+            def from_dict(cls, config):
+                raise NotImplementedError
+
+        with pytest.raises(NotImplementedError, match="_compute_state_dim"):
+            MinimalReactor(name="test", num_species=2, params={})
+
+    def test_ode_rhs_not_implemented(self):
+        """Abstract ode_rhs raises NotImplementedError via super()."""
+        from reactor_twin.reactors.base import AbstractReactor
+
+        class MinimalReactor(AbstractReactor):
+            def _compute_state_dim(self):
+                return self.num_species
+
+            def ode_rhs(self, t, y, u=None):
+                return super().ode_rhs(t, y, u)
+
+            def get_initial_state(self):
+                return np.zeros(self.state_dim)
+
+            def get_state_labels(self):
+                return [f"C_{i}" for i in range(self.num_species)]
+
+            @classmethod
+            def from_dict(cls, config):
+                raise NotImplementedError
+
+        reactor = MinimalReactor(name="test", num_species=2, params={})
+        with pytest.raises(NotImplementedError, match="ode_rhs"):
+            reactor.ode_rhs(0.0, np.zeros(2))
+
+    def test_get_initial_state_not_implemented(self):
+        """Abstract get_initial_state raises NotImplementedError via super()."""
+        from reactor_twin.reactors.base import AbstractReactor
+
+        class MinimalReactor(AbstractReactor):
+            def _compute_state_dim(self):
+                return self.num_species
+
+            def ode_rhs(self, t, y, u=None):
+                return np.zeros(self.state_dim)
+
+            def get_initial_state(self):
+                return super().get_initial_state()
+
+            def get_state_labels(self):
+                return [f"C_{i}" for i in range(self.num_species)]
+
+            @classmethod
+            def from_dict(cls, config):
+                raise NotImplementedError
+
+        reactor = MinimalReactor(name="test", num_species=2, params={})
+        with pytest.raises(NotImplementedError, match="get_initial_state"):
+            reactor.get_initial_state()
+
+    def test_get_state_labels_not_implemented(self):
+        """Abstract get_state_labels raises NotImplementedError via super()."""
+        from reactor_twin.reactors.base import AbstractReactor
+
+        class MinimalReactor(AbstractReactor):
+            def _compute_state_dim(self):
+                return self.num_species
+
+            def ode_rhs(self, t, y, u=None):
+                return np.zeros(self.state_dim)
+
+            def get_initial_state(self):
+                return np.zeros(self.state_dim)
+
+            def get_state_labels(self):
+                return super().get_state_labels()
+
+            @classmethod
+            def from_dict(cls, config):
+                raise NotImplementedError
+
+        reactor = MinimalReactor(name="test", num_species=2, params={})
+        with pytest.raises(NotImplementedError, match="get_state_labels"):
+            reactor.get_state_labels()
+
+    def test_from_dict_not_implemented(self):
+        """Abstract from_dict raises NotImplementedError via super()."""
+        from reactor_twin.reactors.base import AbstractReactor
+
+        class MinimalReactor(AbstractReactor):
+            def _compute_state_dim(self):
+                return self.num_species
+
+            def ode_rhs(self, t, y, u=None):
+                return np.zeros(self.state_dim)
+
+            def get_initial_state(self):
+                return np.zeros(self.state_dim)
+
+            def get_state_labels(self):
+                return [f"C_{i}" for i in range(self.num_species)]
+
+            @classmethod
+            def from_dict(cls, config):
+                return super().from_dict(config)
+
+        with pytest.raises(NotImplementedError, match="from_dict"):
+            MinimalReactor.from_dict({})
+
+    def test_repr(self):
+        """AbstractReactor __repr__ returns expected format."""
+        from reactor_twin.reactors.base import AbstractReactor
+
+        class MinimalReactor(AbstractReactor):
+            def _compute_state_dim(self):
+                return self.num_species
+
+            def ode_rhs(self, t, y, u=None):
+                return np.zeros(self.state_dim)
+
+            def get_initial_state(self):
+                return np.zeros(self.state_dim)
+
+            def get_state_labels(self):
+                return [f"C_{i}" for i in range(self.num_species)]
+
+            @classmethod
+            def from_dict(cls, config):
+                raise NotImplementedError
+
+        reactor = MinimalReactor(name="test", num_species=2, params={})
+        r = repr(reactor)
+        assert "MinimalReactor" in r
+        assert "test" in r
 
 
 class TestConstants:

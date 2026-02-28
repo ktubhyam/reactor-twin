@@ -53,7 +53,7 @@ class ErrorResponse(BaseModel):
 app = FastAPI(
     title="ReactorTwin API",
     description="Physics-constrained Neural DE reactor simulation API",
-    version="0.4.0",
+    version="1.0.0",
 )
 
 app.add_middleware(

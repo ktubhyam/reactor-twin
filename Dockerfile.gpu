@@ -1,0 +1,38 @@
+# ReactorTwin Docker Image — GPU variant
+# Requires NVIDIA Container Runtime
+
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+LABEL org.opencontainers.image.source="https://github.com/ktubhyam/reactor-twin"
+LABEL org.opencontainers.image.description="ReactorTwin GPU — Physics-constrained Neural DEs"
+LABEL org.opencontainers.image.licenses="MIT"
+
+WORKDIR /app
+
+# Install Python 3.11 and system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3.11 \
+        python3.11-venv \
+        python3-pip \
+        build-essential \
+        git \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python3
+
+# Copy dependency specification first for layer caching
+COPY pyproject.toml ./
+COPY src/ ./src/
+
+# Install PyTorch with CUDA support, then the package
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu124 && \
+    pip install --no-cache-dir -e ".[api,dashboard,digital_twin,deploy,sde,cde]"
+
+# Copy remaining files
+COPY examples/ ./examples/
+COPY notebooks/ ./notebooks/
+
+EXPOSE 8000 8501
+
+# Default: run the API server
+CMD ["reactor-twin", "serve", "--host", "0.0.0.0", "--port", "8000"]

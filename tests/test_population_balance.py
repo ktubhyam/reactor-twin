@@ -8,7 +8,6 @@ import pytest
 from reactor_twin.exceptions import ConfigurationError
 from reactor_twin.reactors.population_balance import PopulationBalanceReactor
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────
 
 def _default_params(**overrides):

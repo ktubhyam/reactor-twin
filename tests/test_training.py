@@ -4,22 +4,19 @@ from __future__ import annotations
 
 import os
 import tempfile
-from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
-import torch.nn as nn
+from torch import nn
 
 from reactor_twin.core.neural_ode import NeuralODE
-from reactor_twin.physics.constraints import AbstractConstraint
 from reactor_twin.physics.positivity import PositivityConstraint
 from reactor_twin.reactors.cstr import CSTRReactor
 from reactor_twin.reactors.systems import create_exothermic_cstr
 from reactor_twin.training.data_generator import ReactorDataGenerator
 from reactor_twin.training.losses import MultiObjectiveLoss
 from reactor_twin.training.trainer import Trainer
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -967,10 +964,10 @@ class TestCheckpoint:
             trainer2.load_checkpoint(os.path.join(tmpdir, "ckpt.pt"))
 
             # Compare model parameters
-            for key in original_state:
+            for key, val in original_state.items():
                 torch.testing.assert_close(
                     model2.state_dict()[key],
-                    original_state[key],
+                    val,
                     msg=f"Mismatch in parameter {key}",
                 )
 
@@ -1073,8 +1070,8 @@ class TestIntegration:
 
         assert len(history["train_loss"]) == 2
         assert len(history["val_loss"]) == 2
-        assert all(np.isfinite(l) for l in history["train_loss"])
-        assert all(np.isfinite(l) for l in history["val_loss"])
+        assert all(np.isfinite(v) for v in history["train_loss"])
+        assert all(np.isfinite(v) for v in history["val_loss"])
 
     def test_loss_with_constraint_and_model(self, neural_ode_model, data_generator):
         """Loss function with constraints and regularization on real model output."""
@@ -1113,3 +1110,92 @@ class TestIntegration:
             )
             # Best model should be saved since initial best_val_loss is inf
             assert os.path.exists(os.path.join(tmpdir, "best_model.pt"))
+
+
+# ===========================================================================
+# Data Generator Failure / Retry Tests
+# ===========================================================================
+
+
+class TestDataGeneratorFailurePaths:
+    """Tests for integration failure logging and retry logic in data_generator.py."""
+
+    def test_trajectory_failure_logs_warning(self, isothermal_cstr):
+        """Cover line 91: when solve_ivp returns success=False, warning is logged."""
+        from unittest.mock import MagicMock, patch
+
+        gen = ReactorDataGenerator(isothermal_cstr)
+        t_span = (0.0, 1.0)
+        t_eval = np.linspace(0.0, 1.0, NUM_TIMES)
+
+        # Mock solve_ivp to return a failed result
+        mock_sol = MagicMock()
+        mock_sol.success = False
+        mock_sol.message = "Integration failed (test)"
+        mock_sol.t = t_eval
+        mock_sol.y = np.zeros((STATE_DIM, NUM_TIMES))
+
+        with patch(
+            "reactor_twin.training.data_generator.solve_ivp", return_value=mock_sol
+        ):
+            result = gen.generate_trajectory(t_span, t_eval)
+            assert result["success"] is False
+
+    def test_batch_retry_with_default_ic_on_failure(self, isothermal_cstr):
+        """Cover lines 142-150: retry logic when trajectory generation fails.
+
+        First call fails, retry with default IC succeeds.
+        """
+        from unittest.mock import patch
+
+        gen = ReactorDataGenerator(isothermal_cstr)
+        t_span = (0.0, 1.0)
+        t_eval = np.linspace(0.0, 1.0, NUM_TIMES)
+
+        # First call: fail. Second call (retry with default IC): succeed.
+        call_count = 0
+
+        def mock_generate_trajectory(t_span, t_eval, y0, controls=None):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # First call: fail
+                return {
+                    "t": t_eval,
+                    "y": np.zeros((NUM_TIMES, STATE_DIM)),
+                    "success": False,
+                }
+            else:
+                # Retry: succeed
+                return {
+                    "t": t_eval,
+                    "y": np.ones((NUM_TIMES, STATE_DIM)) * 0.5,
+                    "success": True,
+                }
+
+        with patch.object(gen, "generate_trajectory", side_effect=mock_generate_trajectory):
+            batch = gen.generate_batch(1, t_span, t_eval)
+            assert batch["targets"].shape == (1, NUM_TIMES, STATE_DIM)
+            # The trajectory should be the retry result (0.5s), not zeros
+            assert torch.all(batch["targets"] > 0)
+
+    def test_batch_retry_both_fail_uses_zeros(self, isothermal_cstr):
+        """Cover lines 148-150: when both initial and retry fail, use zeros."""
+        from unittest.mock import patch
+
+        gen = ReactorDataGenerator(isothermal_cstr)
+        t_span = (0.0, 1.0)
+        t_eval = np.linspace(0.0, 1.0, NUM_TIMES)
+
+        def always_fail(t_span, t_eval, y0, controls=None):
+            return {
+                "t": t_eval,
+                "y": np.zeros((NUM_TIMES, STATE_DIM)),
+                "success": False,
+            }
+
+        with patch.object(gen, "generate_trajectory", side_effect=always_fail):
+            batch = gen.generate_batch(1, t_span, t_eval)
+            assert batch["targets"].shape == (1, NUM_TIMES, STATE_DIM)
+            # Both attempts failed, should have zeros
+            assert torch.all(batch["targets"] == 0)

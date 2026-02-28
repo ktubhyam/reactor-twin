@@ -211,14 +211,6 @@ class TestCSTRNeuralODESPCFault:
         traj = _generate_cstr_data(num_points=50, t_end=2.0)
         y = traj["y"]  # (T, 2) numpy
 
-        model = NeuralODE(
-            state_dim=2,
-            solver="euler",
-            adjoint=False,
-            hidden_dim=32,
-            num_layers=2,
-        )
-
         spc = SPCChart(num_vars=2)
         # Use first 30 points as baseline (normal operation)
         spc.set_baseline(y[:30])
@@ -505,10 +497,10 @@ class TestRegistryCompleteness:
         for key in expected:
             assert key in NEURAL_DE_REGISTRY, f"Missing neural DE: {key}"
 
-    def test_version_is_0_3_0(self) -> None:
+    def test_version_is_1_0_0(self) -> None:
         import reactor_twin
 
-        assert reactor_twin.__version__ == "0.3.0"
+        assert reactor_twin.__version__ == "1.0.0"
 
 
 # ── 14. Membrane reactor integration ─────────────────────────────────

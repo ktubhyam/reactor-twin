@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 import torch
-import torch.nn as nn
+from torch import nn
 
 from reactor_twin.core import (
     AugmentedNeuralODE,
@@ -21,7 +21,6 @@ from reactor_twin.core.ode_func import (
     PortHamiltonianODEFunc,
     ResNetODEFunc,
 )
-
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -1025,3 +1024,356 @@ class TestIntegration:
         """Sanity check: the model should have learnable parameters."""
         num_params = sum(p.numel() for p in neural_ode.parameters() if p.requires_grad)
         assert num_params > 0
+
+
+# ===================================================================
+# Save / Load Tests
+# ===================================================================
+
+
+class TestSaveLoad:
+    """Tests for AbstractNeuralDE save/load checkpoint methods."""
+
+    def test_save_creates_checkpoint(self, neural_ode, tmp_path):
+        path = tmp_path / "model.pt"
+        neural_ode.save(path)
+        assert path.exists()
+        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+        assert "model_state_dict" in checkpoint
+        assert "state_dim" in checkpoint
+        assert "input_dim" in checkpoint
+        assert "output_dim" in checkpoint
+        assert checkpoint["state_dim"] == STATE_DIM
+
+    def test_load_restores_model(self, neural_ode, tmp_path):
+        path = tmp_path / "model.pt"
+        neural_ode.save(path)
+
+        loaded = NeuralODE.load(
+            path,
+            solver=SOLVER,
+            adjoint=ADJOINT,
+            hidden_dim=HIDDEN_DIM,
+            num_layers=2,
+        )
+        assert loaded.state_dim == neural_ode.state_dim
+
+        z0 = torch.randn(BATCH_SIZE, STATE_DIM)
+        t_span = torch.linspace(0, 1, NUM_TIMES)
+        pred_orig = neural_ode.predict(z0, t_span)
+        pred_loaded = loaded.predict(z0, t_span)
+        torch.testing.assert_close(pred_orig, pred_loaded)
+
+    def test_predict_runs_in_eval_mode(self, neural_ode):
+        neural_ode.train()
+        z0 = torch.randn(BATCH_SIZE, STATE_DIM)
+        t_span = torch.linspace(0, 1, NUM_TIMES)
+        neural_ode.predict(z0, t_span)
+        assert not neural_ode.training
+
+    def test_save_creates_parent_directories(self, neural_ode, tmp_path):
+        path = tmp_path / "sub" / "dir" / "model.pt"
+        neural_ode.save(path)
+        assert path.exists()
+
+
+# ===================================================================
+# AbstractODEFunc Tests — line 53
+# ===================================================================
+
+
+class TestAbstractODEFunc:
+    """Tests for abstract base class coverage."""
+
+    def test_abstract_forward_raises_not_implemented(self):
+        """Calling forward on a concrete subclass that delegates to super() raises NotImplementedError."""
+        from reactor_twin.core.ode_func import AbstractODEFunc
+
+        # Create a minimal concrete subclass that just calls super().forward()
+        class DummyODEFunc(AbstractODEFunc):
+            def forward(self, t, z, u=None):
+                return super().forward(t, z, u)
+
+        func = DummyODEFunc(state_dim=STATE_DIM)
+        t = torch.tensor(0.0)
+        z = torch.randn(BATCH_SIZE, STATE_DIM)
+        with pytest.raises(NotImplementedError, match="Subclasses must implement forward"):
+            func(t, z)
+
+
+# ===================================================================
+# MLPODEFunc — unbatched u handling (line 125)
+# ===================================================================
+
+
+class TestMLPODEFuncUnbatched:
+    """Tests for unbatched input paths in MLPODEFunc."""
+
+    def test_unbatched_z_with_u(self):
+        """When z is 1D (unbatched) and u is provided, both get unsqueezed (line 125)."""
+        func = MLPODEFunc(
+            state_dim=STATE_DIM,
+            hidden_dim=HIDDEN_DIM,
+            num_layers=2,
+            input_dim=INPUT_DIM,
+        )
+        t = torch.tensor(0.0)
+        z = torch.randn(STATE_DIM)  # unbatched: 1D
+        u = torch.randn(INPUT_DIM)  # unbatched: 1D
+        with torch.no_grad():
+            dzdt = func(t, z, u=u)
+        # Output should be squeezed back to 1D
+        assert dzdt.shape == (STATE_DIM,)
+        assert torch.all(torch.isfinite(dzdt))
+
+
+# ===================================================================
+# ResNetODEFunc — activation selection (lines 179-184)
+# ===================================================================
+
+
+class TestResNetODEFuncActivations:
+    """Tests for ResNetODEFunc activation function selection."""
+
+    def test_resnet_activation_tanh(self):
+        """ResNetODEFunc with activation='tanh' (line 179-180)."""
+        func = ResNetODEFunc(
+            state_dim=STATE_DIM,
+            hidden_dim=HIDDEN_DIM,
+            num_layers=2,
+            activation="tanh",
+        )
+        t = torch.tensor(0.0)
+        z = torch.randn(BATCH_SIZE, STATE_DIM)
+        with torch.no_grad():
+            dzdt = func(t, z)
+        assert dzdt.shape == (BATCH_SIZE, STATE_DIM)
+        assert torch.all(torch.isfinite(dzdt))
+
+    def test_resnet_activation_relu(self):
+        """ResNetODEFunc with activation='relu' (lines 181-182)."""
+        func = ResNetODEFunc(
+            state_dim=STATE_DIM,
+            hidden_dim=HIDDEN_DIM,
+            num_layers=2,
+            activation="relu",
+        )
+        t = torch.tensor(0.0)
+        z = torch.randn(BATCH_SIZE, STATE_DIM)
+        with torch.no_grad():
+            dzdt = func(t, z)
+        assert dzdt.shape == (BATCH_SIZE, STATE_DIM)
+        assert torch.all(torch.isfinite(dzdt))
+
+    def test_resnet_unknown_activation_raises(self):
+        """ResNetODEFunc with unknown activation raises ValueError (lines 183-184)."""
+        with pytest.raises(ValueError, match="Unknown activation"):
+            ResNetODEFunc(
+                state_dim=STATE_DIM,
+                hidden_dim=HIDDEN_DIM,
+                num_layers=2,
+                activation="gelu",
+            )
+
+
+# ===================================================================
+# ResNetODEFunc — batch time and control input (lines 208, 212)
+# ===================================================================
+
+
+class TestResNetODEFuncForward:
+    """Tests for ResNetODEFunc forward with batch time and control inputs."""
+
+    def test_resnet_forward_with_batch_time(self):
+        """ResNetODEFunc forward with batch t (line 208)."""
+        func = ResNetODEFunc(
+            state_dim=STATE_DIM,
+            hidden_dim=HIDDEN_DIM,
+            num_layers=2,
+        )
+        t = torch.randn(BATCH_SIZE)  # batched time
+        z = torch.randn(BATCH_SIZE, STATE_DIM)
+        with torch.no_grad():
+            dzdt = func(t, z)
+        assert dzdt.shape == (BATCH_SIZE, STATE_DIM)
+
+    def test_resnet_forward_with_control_input(self):
+        """ResNetODEFunc forward with u (line 212)."""
+        func = ResNetODEFunc(
+            state_dim=STATE_DIM,
+            hidden_dim=HIDDEN_DIM,
+            num_layers=2,
+            input_dim=INPUT_DIM,
+        )
+        t = torch.tensor(0.0)
+        z = torch.randn(BATCH_SIZE, STATE_DIM)
+        u = torch.randn(BATCH_SIZE, INPUT_DIM)
+        with torch.no_grad():
+            dzdt = func(t, z, u=u)
+        assert dzdt.shape == (BATCH_SIZE, STATE_DIM)
+
+
+# ===================================================================
+# PortHamiltonianODEFunc — with control input (lines 297, 341)
+# ===================================================================
+
+
+class TestPortHamiltonianWithControls:
+    """Tests for PortHamiltonianODEFunc with input_dim > 0."""
+
+    def test_port_hamiltonian_with_input_dim(self):
+        """PortHamiltonianODEFunc with input_dim>0 creates B parameter (line 297)."""
+        func = PortHamiltonianODEFunc(
+            state_dim=STATE_DIM,
+            input_dim=INPUT_DIM,
+            hidden_dim=HIDDEN_DIM,
+        )
+        # B should be a Parameter (not a buffer)
+        assert isinstance(func.B, nn.Parameter)
+        assert func.B.shape == (STATE_DIM, INPUT_DIM)
+
+    def test_port_hamiltonian_forward_with_control(self):
+        """PortHamiltonianODEFunc forward with u adds B @ u term (line 341)."""
+        func = PortHamiltonianODEFunc(
+            state_dim=STATE_DIM,
+            input_dim=INPUT_DIM,
+            hidden_dim=HIDDEN_DIM,
+        )
+        t = torch.tensor(0.0)
+        z = torch.randn(BATCH_SIZE, STATE_DIM)
+        u = torch.randn(BATCH_SIZE, INPUT_DIM)
+
+        # Forward with control
+        dzdt_with_u = func(t, z, u=u)
+        assert dzdt_with_u.shape == (BATCH_SIZE, STATE_DIM)
+        assert torch.all(torch.isfinite(dzdt_with_u))
+
+        # Forward without control
+        dzdt_no_u = func(t, z)
+        assert dzdt_no_u.shape == (BATCH_SIZE, STATE_DIM)
+
+        # The outputs should differ (B @ u contributes)
+        # (unless u happens to be zero, which is extremely unlikely with random data)
+        assert not torch.allclose(dzdt_with_u, dzdt_no_u, atol=1e-6)
+
+    def test_port_hamiltonian_gradient_computation(self):
+        """PortHamiltonianODEFunc computes Hamiltonian gradient (line 297 area)."""
+        func = PortHamiltonianODEFunc(
+            state_dim=STATE_DIM,
+            input_dim=INPUT_DIM,
+            hidden_dim=HIDDEN_DIM,
+        )
+        t = torch.tensor(0.0)
+        z = torch.randn(BATCH_SIZE, STATE_DIM)
+        u = torch.randn(BATCH_SIZE, INPUT_DIM)
+
+        # Should produce finite, non-zero output
+        dzdt = func(t, z, u=u)
+        assert torch.all(torch.isfinite(dzdt))
+        # Check that gradients can flow
+        loss = dzdt.sum()
+        loss.backward()
+        assert func.B.grad is not None
+
+
+# ===========================================================================
+# Import guard tests for Neural CDE and Neural SDE
+# ===========================================================================
+
+
+class TestNeuralCDEImportGuard:
+    """Test that NeuralCDE raises ImportError when torchcde is unavailable."""
+
+    def test_import_error_when_torchcde_unavailable(self):
+        """NeuralCDE __init__ raises ImportError when TORCHCDE_AVAILABLE is False."""
+        import reactor_twin.core.neural_cde as cde_module
+
+        original = cde_module.TORCHCDE_AVAILABLE
+        try:
+            cde_module.TORCHCDE_AVAILABLE = False
+            with pytest.raises(ImportError, match="torchcde is required"):
+                cde_module.NeuralCDE(state_dim=4, input_dim=3)
+        finally:
+            cde_module.TORCHCDE_AVAILABLE = original
+
+    def test_unknown_interpolation_raises(self):
+        """NeuralCDE forward raises ValueError for unknown interpolation."""
+        pytest.importorskip("torchcde")
+        from reactor_twin.core.neural_cde import NeuralCDE
+
+        model = NeuralCDE(
+            state_dim=4,
+            input_dim=3,
+            interpolation="linear",
+            solver="euler",
+            adjoint=False,
+        )
+        # Override interpolation to trigger unknown branch
+        model.interpolation = "unknown_method"
+        z0 = torch.randn(2, 3)
+        t_span = torch.linspace(0, 1, 5)
+        controls = torch.randn(2, 5, 3)
+        with pytest.raises(ValueError, match="Unknown interpolation"):
+            model(z0, t_span, controls=controls)
+
+    def test_compute_loss_all_nan_targets(self):
+        """When all targets are NaN, mask.any() is False and fallback loss is used."""
+        pytest.importorskip("torchcde")
+        from reactor_twin.core.neural_cde import NeuralCDE
+
+        model = NeuralCDE(
+            state_dim=4,
+            input_dim=3,
+            interpolation="linear",
+            solver="euler",
+            adjoint=False,
+        )
+        preds = torch.randn(2, 5, 3)
+        targets = torch.full((2, 5, 3), float("nan"))
+        losses = model.compute_loss(preds, targets)
+        # Loss should still return a value (NaN-based MSE)
+        assert "total" in losses
+        assert "data" in losses
+
+
+class TestNeuralSDEImportGuard:
+    """Test that NeuralSDE raises ImportError when torchsde is unavailable."""
+
+    def test_import_error_when_torchsde_unavailable(self):
+        """NeuralSDE __init__ raises ImportError when TORCHSDE_AVAILABLE is False."""
+        import reactor_twin.core.neural_sde as sde_module
+
+        original = sde_module.TORCHSDE_AVAILABLE
+        try:
+            sde_module.TORCHSDE_AVAILABLE = False
+            with pytest.raises(ImportError, match="torchsde is required"):
+                sde_module.NeuralSDE(state_dim=3)
+        finally:
+            sde_module.TORCHSDE_AVAILABLE = original
+
+    def test_sde_func_unsupported_noise_type_auto_creation(self):
+        """SDEFunc raises ValueError for unsupported noise_type auto-creation."""
+        from reactor_twin.core.neural_sde import SDEFunc
+
+        drift = MLPODEFunc(state_dim=3, hidden_dim=16, num_layers=2)
+        with pytest.raises(ValueError, match="Unsupported noise_type"):
+            SDEFunc(drift, noise_type="general")
+
+    def test_sde_func_general_with_custom_diffusion(self):
+        """SDEFunc with noise_type='general' and custom diffusion function."""
+        from reactor_twin.core.neural_sde import SDEFunc
+
+        drift = MLPODEFunc(state_dim=3, hidden_dim=16, num_layers=2)
+
+        class CustomDiffusion(nn.Module):
+            def forward(self, t, z):
+                # Return (batch, state_dim, noise_dim)
+                batch = z.shape[0]
+                return torch.ones(batch, 3, 2) * 0.1
+
+        custom_diff = CustomDiffusion()
+        sde = SDEFunc(drift, diffusion_func=custom_diff, noise_type="general")
+        z = torch.randn(4, 3)
+        t = torch.tensor(0.0)
+        out = sde.g(t, z)
+        assert out.shape == (4, 3, 2)

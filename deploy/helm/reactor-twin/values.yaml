@@ -1,0 +1,44 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/ktubhyam/reactor-twin
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: reactor-twin.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: "2"
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+env:
+  REACTOR_TWIN_JWT_SECRET: "change-me-in-production"
+  REACTOR_TWIN_RATE_LIMIT: "60"
+  REACTOR_TWIN_TOKEN_EXPIRY: "3600"
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

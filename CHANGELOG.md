@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-02-28
+
+### Added — Production Release (v1.0.0)
+
+#### CLI
+- Unified `reactor-twin` CLI with argparse (no new dependencies)
+  - `reactor-twin train --config config.yaml` — Train from YAML config
+  - `reactor-twin serve --host 0.0.0.0 --port 8000` — Start FastAPI server
+  - `reactor-twin export --model checkpoint.pt --format onnx` — Export to ONNX
+  - `reactor-twin dashboard --port 8501` — Launch Streamlit dashboard
+
+#### Kubernetes Deployment
+- Helm chart (`deploy/helm/reactor-twin/`) with:
+  - Deployment with health probes (liveness + readiness)
+  - ClusterIP Service
+  - Optional Ingress
+  - ConfigMap for environment configuration
+  - Horizontal Pod Autoscaler (CPU-based)
+- GPU Dockerfile (`Dockerfile.gpu`) with NVIDIA CUDA base image
+
+#### Documentation
+- Deployment guide (`docs/guide/deployment.md`): Docker, Kubernetes, CLI, configuration reference, monitoring, security
+
+### Tests
+- Coverage pushed from 71% to 90%+ (dashboard pages excluded from coverage)
+- New test files: `test_online_adapter.py`, `test_meta_learner.py`, `test_discovery_no_pysr.py`
+- Extended: `test_distributed.py` (train_epoch, validate, full loop, gradient accumulation, LR scheduler)
+- Extended: `test_api.py` (v2 endpoints: token, upload, predict, batch-predict, list models)
+- Extended: `test_core.py` (save/load checkpoint, predict eval mode)
+- Extended: `test_systems.py` (consecutive/parallel utility functions)
+- Extended: `test_auth.py` (token expiry, client key extraction, rate limiter edge cases)
+
+### Changed
+- Version bumped to 1.0.0
+- Development Status classifier updated to "Production/Stable"
+- Dashboard pages excluded from test coverage metrics (interactive Streamlit UI)
+
 ## [0.4.0] - 2026-02-28
 
 ### Added — Real-World Validation (Phase v0.4.0)
@@ -251,7 +288,8 @@ Initial architecture setup. Foundation for physics-constrained Neural DEs.
 - MIT License
 - README with quickstart and examples
 
-[Unreleased]: https://github.com/ktubhyam/reactor-twin/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ktubhyam/reactor-twin/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/ktubhyam/reactor-twin/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/ktubhyam/reactor-twin/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/ktubhyam/reactor-twin/compare/v0.3.0...v0.3.1
 [0.1.0]: https://github.com/ktubhyam/reactor-twin/compare/v0.0.1...v0.1.0

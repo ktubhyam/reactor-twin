@@ -14,7 +14,6 @@ from reactor_twin.exceptions import (
     ValidationError,
 )
 
-
 # ── Inheritance chain ────────────────────────────────────────────────
 
 

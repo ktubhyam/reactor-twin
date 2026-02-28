@@ -1,0 +1,9 @@
+apiVersion: v2
+name: reactor-twin
+description: Physics-constrained Neural DEs for chemical reactor digital twins
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+maintainers:
+  - name: Tubhyam Karthikeyan
+    email: takarthikeyan25@gmail.com

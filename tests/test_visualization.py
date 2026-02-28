@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import matplotlib
 import numpy as np
+import pytest
 import torch
 
 matplotlib.use("Agg")  # non-interactive backend for testing
@@ -132,3 +133,31 @@ class TestPlotLatentSpace:
         z = torch.randn(20, 2)
         fig = plot_latent_space(z)
         assert isinstance(fig, go.Figure)
+
+    def test_tsne_with_sklearn(self):
+        pytest.importorskip("sklearn")
+        z = torch.randn(30, 8)
+        fig = plot_latent_space(z, method="tsne")
+        assert isinstance(fig, go.Figure)
+
+    def test_tsne_fallback_without_sklearn(self):
+        from unittest import mock
+
+        z = torch.randn(30, 8)
+        with mock.patch.dict("sys.modules", {"sklearn": None, "sklearn.manifold": None}):
+            # Should fall back to PCA
+            fig = plot_latent_space(z, method="tsne")
+            assert isinstance(fig, go.Figure)
+
+    def test_umap_fallback_without_umap(self):
+        from unittest import mock
+
+        z = torch.randn(30, 8)
+        with mock.patch.dict("sys.modules", {"umap": None}):
+            fig = plot_latent_space(z, method="umap")
+            assert isinstance(fig, go.Figure)
+
+    def test_unknown_method_raises(self):
+        z = torch.randn(20, 5)
+        with pytest.raises(ValueError, match="Unknown method"):
+            plot_latent_space(z, method="invalid_method")

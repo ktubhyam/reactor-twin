@@ -6,7 +6,6 @@ import pytest
 import torch
 
 from reactor_twin.physics import (
-    AbstractConstraint,
     ConstraintPipeline,
     EnergyBalanceConstraint,
     GENERICConstraint,
@@ -746,7 +745,7 @@ class TestPortHamiltonianConstraint:
         """By construction J = A - A^T, so J + J^T = 0; skew violation is 0."""
         torch.manual_seed(0)
         z = torch.randn(2, 5, 4)
-        violation = ph_hard.compute_violation(z)
+        ph_hard.compute_violation(z)
         # J is exactly skew-symmetric by construction, R is PSD by construction
         # So the violation should be very small (just numerical noise)
         J = ph_hard.get_J_matrix()

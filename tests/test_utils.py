@@ -6,14 +6,12 @@ import pytest
 
 from reactor_twin.utils import (
     CONSTRAINT_REGISTRY,
-    DIGITAL_TWIN_REGISTRY,
     KINETICS_REGISTRY,
     NEURAL_DE_REGISTRY,
-    REACTOR_REGISTRY,
     R_GAS,
+    REACTOR_REGISTRY,
     Registry,
 )
-
 
 # ---------------------------------------------------------------------------
 # Registry Tests

@@ -15,7 +15,6 @@ from reactor_twin.reactors.systems import (
     create_van_de_vusse_cstr,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -26,7 +25,7 @@ def simulate_reactor(reactor, t_end=10.0, num_points=100):
     t_eval = np.linspace(0, t_end, num_points)
 
     sol = solve_ivp(
-        lambda t, y: reactor.ode_rhs(t, y),
+        reactor.ode_rhs,
         [0, t_end],
         y0,
         t_eval=t_eval,
@@ -249,3 +248,104 @@ class TestBenchmarkCommon:
         y0 = reactor.get_initial_state()
         dy = reactor.ode_rhs(0.0, y0)
         assert np.all(np.isfinite(dy))
+
+
+# ---------------------------------------------------------------------------
+# Consecutive Reactions Utility Functions
+# ---------------------------------------------------------------------------
+
+class TestConsecutiveUtilities:
+    """Tests for consecutive reaction utility functions."""
+
+    def test_optimal_residence_time_positive(self):
+        from reactor_twin.reactors.systems.consecutive import compute_optimal_residence_time
+
+        tau = compute_optimal_residence_time(k1=1.0, k2=1.0)
+        assert tau > 0
+        assert np.isfinite(tau)
+
+    def test_optimal_residence_time_formula(self):
+        from reactor_twin.reactors.systems.consecutive import compute_optimal_residence_time
+
+        k1, k2 = 4.0, 9.0
+        tau = compute_optimal_residence_time(k1, k2)
+        expected = 1.0 / np.sqrt(k1 * k2)
+        assert tau == pytest.approx(expected)
+
+    def test_steady_state_sum_conservation(self):
+        from reactor_twin.reactors.systems.consecutive import (
+            compute_steady_state_concentrations,
+        )
+
+        C_A_in = 2.0
+        C_A, C_B, C_C = compute_steady_state_concentrations(C_A_in, k1=1.0, k2=0.5, tau=1.0)
+        # Mass balance: C_A + C_B + C_C = C_A_in
+        assert C_A + C_B + C_C == pytest.approx(C_A_in, abs=1e-10)
+
+    def test_steady_state_concentrations_non_negative(self):
+        from reactor_twin.reactors.systems.consecutive import (
+            compute_steady_state_concentrations,
+        )
+
+        C_A, C_B, C_C = compute_steady_state_concentrations(3.0, k1=2.0, k2=1.0, tau=0.5)
+        assert C_A >= 0
+        assert C_B >= 0
+        assert C_C >= 0
+
+    def test_species_names(self):
+        from reactor_twin.reactors.systems.consecutive import get_consecutive_species_names
+
+        names = get_consecutive_species_names()
+        assert len(names) == 3
+
+
+# ---------------------------------------------------------------------------
+# Parallel Reactions Utility Functions
+# ---------------------------------------------------------------------------
+
+class TestParallelUtilities:
+    """Tests for parallel reaction utility functions."""
+
+    def test_selectivity_positive(self):
+        from reactor_twin.reactors.systems.parallel import compute_selectivity
+
+        S = compute_selectivity(C_A=1.0, k1=1.0, k2=0.5, n1=1.0, n2=2.0)
+        assert S > 0
+
+    def test_selectivity_zero_concentration(self):
+        from reactor_twin.reactors.systems.parallel import compute_selectivity
+
+        S = compute_selectivity(C_A=0.0, k1=1.0, k2=0.5, n1=1.0, n2=2.0)
+        assert S == 0.0
+
+    def test_selectivity_ratio(self):
+        from reactor_twin.reactors.systems.parallel import compute_selectivity
+
+        # S = (k1 * C_A^n1) / (k2 * C_A^n2 + eps)
+        S = compute_selectivity(C_A=1.0, k1=2.0, k2=1.0, n1=1.0, n2=1.0)
+        assert S == pytest.approx(2.0, rel=1e-6)
+
+    def test_yield_bounds(self):
+        from reactor_twin.reactors.systems.parallel import compute_yield
+
+        y = compute_yield(C_A_in=3.0, C_A=1.0, C_B=1.5)
+        assert 0.0 <= y <= 1.0
+
+    def test_yield_no_consumption(self):
+        from reactor_twin.reactors.systems.parallel import compute_yield
+
+        y = compute_yield(C_A_in=3.0, C_A=3.0, C_B=0.0)
+        assert y == 0.0
+
+    def test_yield_formula(self):
+        from reactor_twin.reactors.systems.parallel import compute_yield
+
+        # yield = C_B / (C_A_in - C_A)
+        y = compute_yield(C_A_in=4.0, C_A=2.0, C_B=1.0)
+        assert y == pytest.approx(0.5)
+
+    def test_species_names(self):
+        from reactor_twin.reactors.systems.parallel import get_parallel_species_names
+
+        names = get_parallel_species_names()
+        assert len(names) == 3
