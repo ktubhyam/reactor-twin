@@ -8,6 +8,7 @@
 [![CI](https://github.com/ktubhyam/reactor-twin/actions/workflows/ci.yml/badge.svg)](https://github.com/ktubhyam/reactor-twin/actions/workflows/ci.yml)
 [![Documentation](https://img.shields.io/badge/docs-mkdocs-blue.svg)](https://ktubhyam.github.io/reactor-twin)
 [![codecov](https://codecov.io/gh/ktubhyam/reactor-twin/graph/badge.svg)](https://codecov.io/gh/ktubhyam/reactor-twin)
+[![Paper](https://img.shields.io/badge/paper-ML4PS%20%40%20NeurIPS%202026-red.svg)](paper/main.pdf)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
 ---
@@ -23,7 +24,30 @@ ReactorTwin is a framework for building **digital twins** of chemical reactors u
 - **Digital twin features**: EKF state estimation, 4-level fault detection, MPC control, online adaptation, meta-learning
 - **10-page Streamlit dashboard** for interactive simulation and analysis
 
-**Key differentiator:** Architectural projection onto constraint manifolds ensures physical laws are satisfied **exactly**, not approximately.
+**Key differentiator:** Post-solve feasibility maps and architectural reparameterisations ensure physical laws are satisfied **exactly** at every output point. The right inductive bias depends on state structure — see our [NeurIPS 2026 paper](#research).
+
+---
+
+## Research
+
+This library is the codebase for:
+
+> **Choosing Physics Constraints for Neural ODE Reactor Surrogates**
+> Tubhyam Karthikeyan
+> *Machine Learning for Physical Sciences (ML4PS) @ NeurIPS 2026*
+
+**Key findings** (3 canonical benchmarks, 7 constraint conditions, 3 seeds):
+
+- Soft ℓ₂ penalties produce seed-dependent violations (0–41%) insensitive to λ
+  within tested budgets (λ=1–100, 500 epochs)
+- Hard post-solve enforcement: **0.00% violations everywhere**; 99% NMSE reduction
+  on exothermic CSTR
+- Log-parameterisation: 600× better than hard on VDV CSTR (all-concentration
+  state); fails catastrophically on mixed states (NMSE=10⁴)
+- Accuracy cost of hard enforcement is **map-specific**: ReLU projection achieves
+  NMSE 104.3 on VDV CSTR vs 246.5 (softplus), both at 0.00% violations
+
+[Paper PDF](paper/main.pdf) · [Results data](results/paper_results.json) · [Experiment script](scripts/experiments_paper.py)
 
 ---
 
@@ -265,11 +289,21 @@ See [ROADMAP.md](ROADMAP.md) for details.
 If you use ReactorTwin in your research, please cite:
 
 ```bibtex
+@inproceedings{karthikeyan2026choosing,
+  title     = {Choosing Physics Constraints for Neural {ODE} Reactor Surrogates},
+  author    = {Karthikeyan, Tubhyam},
+  booktitle = {Machine Learning for Physical Sciences Workshop at NeurIPS 2026},
+  year      = {2026},
+  url       = {https://github.com/ktubhyam/reactor-twin},
+}
+
 @software{reactortwin2026,
-  author = {Karthikeyan, Tubhyam},
-  title = {ReactorTwin: Physics-Constrained Neural Differential Equations for Chemical Reactor Digital Twins},
-  year = {2026},
-  url = {https://github.com/ktubhyam/reactor-twin}
+  author  = {Karthikeyan, Tubhyam},
+  title   = {{ReactorTwin}: Physics-Constrained Neural Differential Equations
+             for Chemical Reactor Digital Twins},
+  year    = {2026},
+  url     = {https://github.com/ktubhyam/reactor-twin},
+  version = {1.1.1},
 }
 ```
 

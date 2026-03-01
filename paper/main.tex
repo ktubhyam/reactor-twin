@@ -1,0 +1,419 @@
+\documentclass{article}
+
+% ML4PS @ NeurIPS 2026 — 4 pages + references
+% Place neurips_2024.sty in this directory (download from neurips.cc)
+\usepackage[final]{neurips_2024}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{dblfloatfix}   % fixes figure* placement in two-column
+
+\graphicspath{{../figures/}}
+
+% -----------------------------------------------------------------------
+\title{Choosing Physics Constraints for Neural ODE Reactor Surrogates}
+
+\author{%
+  Tubhyam Karthikeyan \\
+  Department of Chemical Engineering \\
+  Institute of Chemical Technology, Mumbai \\
+  \texttt{tubhyam@ictmumbai.edu.in}
+}
+
+% -----------------------------------------------------------------------
+\begin{document}
+
+\maketitle
+
+% -----------------------------------------------------------------------
+\begin{abstract}
+Neural ODE surrogates for chemical reactors can violate fundamental physical
+laws---producing negative concentrations, non-conserving mass, and
+physically impossible trajectories that compound into surrogate collapse on
+long rollout horizons.
+We present a comparative study of physics-enforcing inductive biases: soft
+$\ell_2$ penalty methods, post-solve feasibility maps (``hard enforcement''),
+and architectural state reparameterisations (log-space, stoichiometric-rate)
+evaluated on three canonical reactor benchmarks.
+\emph{Inductive bias scope determines both safety and accuracy}: soft penalties
+produce seed-dependent violations (0--41\%) that persist across all $\lambda$
+and training budgets tested (up to $\lambda\!=\!100$, 500~epochs).
+Hard post-solve enforcement is the robust safe default for mixed or unknown
+state structure (0.00\% violations, 99\% NMSE reduction on exothermic CSTR),
+but log-parameterisation dominates on all-concentration states ($600\times$
+better on VDV CSTR) while failing catastrophically on mixed states
+($\mathrm{NMSE}=10^4$).
+Code: \texttt{reactor-twin} on PyPI.
+\end{abstract}
+
+% -----------------------------------------------------------------------
+\section{Introduction}
+\label{sec:intro}
+
+Production-grade CSTR simulations require $\mathcal{O}(10^3)$ solver
+evaluations per second of process time, constraining real-time deployment in
+model predictive control, state estimation, and digital-twin applications.
+Neural ODEs~\citep{chen2018neural} replace the mechanistic right-hand side
+with a learned function $f_\theta(z,t)$, achieving 11--19$\times$ CPU
+speedup over adaptive solvers (19$\times$/16$\times$/11$\times$ on
+exothermic/VDV/batch vs.\ \texttt{scipy} LSODA at $\mathrm{rtol}=10^{-7}$).
+ChemNODE~\citep{owoyele2022chemnode} and
+Phy-ChemNODE~\citep{sharma2023phychemnode} demonstrate strong accuracy on
+CSTR benchmarks, but share a fundamental flaw.
+
+\paragraph{The violation problem.}
+The unconstrained MLP $f_\theta$ has no mechanism preventing physically
+impossible trajectories.
+Concentrations become negative; mass is not conserved; temperature evolves
+outside physically permissible bounds.
+Constraint drift compounds over rollouts; without conservation invariants,
+long-horizon simulation can diverge qualitatively.
+Negative concentrations cause log-domain failures in downstream thermodynamics
+modules; mass non-conservation drives EKF filter divergence.
+Our experiments confirm this: unconstrained models incur 41\% positivity
+violations and mass drift $0.021\pm0.011$ on standard benchmarks
+(Table~\ref{tab:ablation}).
+
+\paragraph{Why soft penalties fail.}
+Adding $\lambda\mathcal{V}(z)$ to the training loss creates a
+\emph{training--inference gap}: at deployment no penalty fires, so constraint
+satisfaction is an accident of optimisation.
+Three seeds on the same benchmark at $\lambda=1$ produce violation rates of
+0\%, 16\%, and 38\%---a 38 percentage-point range (Figure~\ref{fig:combined}(e)).
+No $\lambda$ closes the gap: at $\lambda=100$ the mean rate is still 3.7\%,
+with MSE 81\% higher than hard post-solve enforcement
+(Figure~\ref{fig:combined}(c--d)).
+
+\paragraph{This work.}
+We enforce constraints via post-solve enforcement---after \texttt{odeint}
+returns trajectory $z(t)$, a differentiable map $\tilde{z}=g(z)$ satisfies
+the constraint at every output point---and compare it systematically against
+soft penalties and architectural reparameterisations on matched benchmarks.
+The key finding: \emph{no single method dominates across state structures},
+but the choice is principled and can be made from state-structure inspection
+alone.
+
+\paragraph{Contributions.}
+(1)~A composable framework of seven physics constraint modules, released as
+\texttt{reactor-twin} on PyPI.
+(2)~Empirical evidence that soft $\ell_2$ penalty violations persist across
+seeds and two orders of magnitude of $\lambda$ ($\lambda=1$--$100$, 500~epochs).
+(3)~A comparative study establishing that accuracy depends on whether the
+structural assumption spans the full state: use hard enforcement for mixed
+or unknown state structure, log-param for all-concentration states,
+stoich-param for reaction-explicit systems.
+
+% -----------------------------------------------------------------------
+\section{Background}
+\label{sec:background}
+
+A Neural ODE~\citep{chen2018neural} defines dynamics $\dot{z}=f_\theta(z,t)$
+integrated by a differentiable solver:
+\begin{equation}
+  z(t_1) = z(t_0) + \int_{t_0}^{t_1} f_\theta\!\bigl(z(t),t\bigr)\,\mathrm{d}t.
+  \label{eq:node}
+\end{equation}
+Gradients $\partial\mathcal{L}/\partial\theta$ are computed via the adjoint
+at $\mathcal{O}(1)$ memory cost.
+The function $f_\theta$ is an unconstrained MLP; nothing prevents it from
+producing $\dot{z}$ that integrate to unphysical~$z(t)$.
+
+PINNs~\citep{raissi2019physics} augment the loss with physics residuals but
+share the training--inference gap.
+Hamiltonian~\citep{greydanus2019hamiltonian} and Lagrangian~\citep{cranmer2020lagrangian}
+NNs give exact conservation but only for symplectic or Euler--Lagrange
+structure---not the heterogeneous constraints of chemical reactors.
+Finzi et al.~\citep{finzi2020simplifying} enforce constraints via explicit
+projection layers (closest prior to our hard enforcement, but limited to
+classical mechanics structure); see \citet{kidger2022neural} for a general survey.
+ChemNODE~\citep{owoyele2022chemnode} and Phy-ChemNODE~\citep{sharma2023phychemnode}
+apply soft penalties to CSTRs; both share the training--inference gap.
+
+
+% -----------------------------------------------------------------------
+\section{Method: Constraint Framework}
+\label{sec:method}
+
+Each physics constraint is an \texttt{AbstractConstraint} module:
+\begin{equation}
+  \texttt{forward}(z) \;\to\; (\tilde{z},\; v),
+  \label{eq:interface}
+\end{equation}
+where $\tilde{z}$ is the corrected (feasible) state and $v\geq0$ is a scalar violation.
+In \emph{hard mode}, $\tilde{z}=g(z)$ and $v=0$; the data loss $\mathcal{L}$
+trains $f_\theta$ with gradients flowing through $g$.
+In \emph{soft mode}, $\tilde{z}=z$ and $v=\mathcal{V}(z)$; the total physics
+loss $\mathcal{L}_\mathrm{phys}=\sum_i w_i v_i$ augments the data loss.
+Constraints compose as a sequential \texttt{ConstraintPipeline} applied after
+each \texttt{odeint} call.
+
+\subsection{Mass Balance Projection}
+\label{sec:mass}
+
+For a reactor with stoichiometric matrix $S\in\mathbb{R}^{n_r\times n_s}$,
+all realisable concentration changes lie in $\operatorname{range}(S^\top)$.
+The orthogonal projection onto this subspace is:
+\begin{equation}
+  P_\mathrm{mass} = S^\top(SS^\top)^\dagger S \;\in\; \mathbb{R}^{n_s\times n_s},
+  \label{eq:pmass}
+\end{equation}
+where $\dagger$ denotes the Moore--Penrose pseudoinverse (equal to the ordinary
+inverse when $S$ has full row rank; handles dependent reactions without
+modification); $P_\mathrm{mass}$ is symmetric, idempotent, rank-$\mathrm{rank}(S)$.
+The corrected trajectory is $\tilde{C}(t)=C(t_0)+P_\mathrm{mass}\,\Delta C(t)$,
+satisfying $(I-P_\mathrm{mass})\Delta C=0$ exactly.
+The Jacobian of $P_\mathrm{mass}$ is itself (a constant linear map), so
+gradients flow without attenuation.
+
+\subsection{Positivity Feasibility Map}
+\label{sec:pos}
+
+For concentration positivity we use a smooth feasibility map---not an
+orthogonal projection:
+\begin{equation}
+  \tilde{z}_i = \log(1+\exp(z_i)) + \varepsilon, \quad \varepsilon=10^{-6},
+  \label{eq:softplus}
+\end{equation}
+applied element-wise to species dimensions.
+The Jacobian $\partial\tilde{z}_i/\partial z_i=\sigma(z_i)\in(0,1)$ is
+differentiable everywhere (unlike ReLU) with bounded derivative in $(0,1)$;
+$\sigma(z_i)\to0$ for large negative $z_i$, so gradient flow through $g$
+weakens when $f_\theta$ produces strongly negative outputs early in training,
+mitigated here by gradient clipping (clip~5.0).
+Unlike Eq.~\eqref{eq:pmass}, this is not a Euclidean projection: it shifts
+states away from zero rather than mapping to the nearest feasible point.
+When composed after mass balance (the correct ordering), the total mass is
+$C_\mathrm{total}+n_s\varepsilon$---a deterministic, known offset.
+Both guarantees hold at every discrete output time point; inter-step
+satisfaction depends on solver step size.
+
+% -----------------------------------------------------------------------
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Benchmarks and Setup}
+\label{ssec:setup}
+
+\textbf{Three benchmarks.}
+\emph{Exothermic CSTR}: $A\to B$ with heat integration and steady-state
+multiplicity; state $(C_A,C_B,T)$; constraint: positivity on $(C_A,C_B)$.
+\emph{Van de Vusse (VDV) CSTR}: $A\!\to\!B\!\to\!C$, $2A\!\to\!D$ in a
+CSTR~\citep{vandvusse1964}; state $(C_A,C_B,C_C,C_D)$; constraint: positivity.
+\emph{Batch $A\!\to\!B\!\to\!C$}: consecutive first-order in a closed batch;
+state $(C_A,C_B,C_C)$; constraint: mass balance ($\sum_i C_i = \mathrm{const}$).
+
+\textbf{Architecture and training.}
+All models: NeuralODE, 3-layer MLP ($d=64$), tanh, RK4 (${\sim}14\,\mathrm{K}$
+parameters).
+Adam with cosine annealing, 200~epochs (main ablation), gradient clip~5.0;
+500~epochs for convergence study (\S\ref{ssec:convergence}).
+Data: 24~train and 8~val trajectories; $\pm40\%$ concentration and
+$\pm15\,\mathrm{K}$ perturbations around steady state.
+Three seeds (42, 43, 44); results reported as mean$\,\pm\,$std.
+
+\textbf{Seven conditions.}
+(1)~\emph{None}: unconstrained.
+(2--3)~\emph{Soft} $\lambda\in\{1,10\}$: $\ell_2$ penalty.
+(4)~\emph{Hard}: post-solve enforcement, gradients flow through $g$.
+(5)~\emph{Log-param}: concentrations in log-space; temperature stays linear
+for exothermic CSTR (mixed state).
+(6)~\emph{Stoich-param} (batch only): ODE outputs rates $r$;
+$\mathrm{d}C/\mathrm{d}t=S^\top r$.
+(7)~\emph{Hard (IO)}: trained unconstrained, projection at inference only.
+Training loss is computed in each condition's native parameterisation; NMSE
+is always in physical space (log-param models mapped back via
+$\exp(\cdot)$ before Eq.~\eqref{eq:nmse}).
+
+\textbf{Metrics.}
+Violation: positivity fraction~(\%) for CSTRs; mass drift $|\Delta\!\sum_i C_i|$
+for batch; also min-concentration and integrated negativity (both zero when no
+violation occurs).
+Long-rollout accuracy:
+\begin{equation}
+  \mathrm{NMSE} = \frac{1}{d}\sum_{k=1}^{d}
+    \frac{\bigl\|z_k - \hat{z}_k\bigr\|^2}
+         {\max\!\bigl(\bar{z}_k,\;10^{-2}\bigr)^2},
+  \qquad \bar{z}_k = \mathbb{E}_{t,b}\!\bigl[|z_k|\bigr].
+  \label{eq:nmse}
+\end{equation}
+Per-dimension normalisation makes NMSE scale-invariant across concentrations
+(${\sim}0.5\,\mathrm{mol/L}$) and temperature (${\sim}350\,\mathrm{K}$).
+Pre-projection drift $\delta = \|z(t)-g(z(t))\|/\|z(t)\|$ measures the
+relative correction applied by the full feasibility pipeline $g(\cdot)$
+(distinct from $P_\mathrm{mass}$) at evaluation; larger $\delta$
+indicates the raw model output is farther from the feasible set.
+
+\subsection{Main Ablation}
+\label{ssec:ablation}
+
+Table~\ref{tab:ablation} gives the full results.
+All hard-mode conditions achieve $\mathbf{0.00\%\pm0.00\%}$ violations by
+construction.
+Soft penalties show persistent, seed-dependent violations at every~$\lambda$.
+
+\textbf{Hard post-solve enforcement.}
+On \textbf{exothermic CSTR}, hard achieves $0.711$ NMSE vs.\ $93.2$
+unconstrained (99\% reduction); the model actively leverages $g$ as a
+corrective element during training (pre-projection drift~$=0.825$,
+indicating $g$ resolves large deviations before the loss is computed).
+On \textbf{VDV CSTR}, hard (softplus) degrades to $246.5$ ($165.3$ unconstrained):
+per-species shifts disrupt stoichiometric coupling for species C and~D near zero;
+substituting ReLU projection ($104.3$, $0.00\%$) confirms the cost is map-specific
+(ReLU restricted to VDV: exo CSTR drift~$=0.825$ warrants smooth softplus).
+On \textbf{batch}, a modest improvement ($0.431$ vs.\ $0.494$).
+
+\textbf{Architectural baselines.}
+Log-param is $600\times$ better than hard on VDV ($0.272$ vs.\ $246.5$):
+uniform log-space preserves stoichiometric ratios.
+It fails catastrophically on exothermic CSTR ($10^4$): the mixed state
+$[\log C_A,\log C_B,T]$ creates gradient scale mismatch---$\mathrm{d}(\log
+C_A)/\mathrm{d}t\sim1/C_A$ blows up near the minimum while $\mathrm{d}T/\mathrm{d}t$
+stays moderate.
+Stoich-param is $17\times$ better than hard on batch ($0.026$ vs.\ $0.431$):
+$\mathrm{d}C/\mathrm{d}t=S^\top r$ matches physical structure exactly.
+
+\textbf{Training regularisation vs.\ inference correction.}
+Applying enforcement only at inference (\emph{Hard (IO)}): on exothermic
+CSTR (drift $=0.003$) it reduces NMSE from $93.2$ to $42.2$, but falls far
+short of full hard ($0.711$); on VDV (drift $=0.537$), inference enforcement
+is catastrophic ($\mathrm{NMSE}=2926$).
+Gradient flow through $g$ during training is essential.
+
+\begin{table}[t]
+\centering
+\caption{%
+  Full ablation over 3~seeds (42, 43, 44). NMSE: long-rollout (Eq.~\ref{eq:nmse}).
+  Violation: positivity fraction (\%) for CSTRs; mean mass drift for batch.
+  \emph{Hard}: post-solve enforcement at training and inference.
+  \emph{Hard (IO)}: enforcement at inference only.
+  \emph{Log}/\emph{Stoich}: architectural baselines.
+  \textbf{Bold}: lowest violation. $\dagger$: lowest NMSE per system.
+  For all conditions reporting \textbf{0.00\%} violations,
+  min-concentration and integrated negativity are likewise zero by construction.%
+}
+\label{tab:ablation}
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{llrrrr}
+\toprule
+\multirow{2}{*}{System} & \multirow{2}{*}{Condition} &
+  \multicolumn{2}{c}{NMSE $\downarrow$} &
+  \multicolumn{2}{c}{Violation $\downarrow$} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}
+ & & Mean & Std & Mean & Std \\
+\midrule
+\multirow{6}{*}{Exo CSTR}
+  & None                 & 93.20 & 57.66 & 41.0\%             & 8.3\% \\
+  & Soft ($\lambda\!=\!1$)   &  5.71 &  2.64 & 17.9\%         & 19.1\% \\
+  & Soft ($\lambda\!=\!10$)  & 30.91 & 37.88 & \phantom{0}7.1\%       & 12.3\% \\
+  & \textbf{Hard}$^\dagger$  & \textbf{0.711} & \textbf{0.000} & \textbf{0.00\%} & \textbf{0.00\%} \\
+  & Log-param            & 10106 & 6529  & \textbf{0.00\%}    & 0.00\% \\
+  & Hard (IO)            & 42.22 & 47.46 & \textbf{0.00\%}    & 0.00\% \\
+\midrule
+\multirow{7}{*}{VDV CSTR}
+  & None                 & 165.3 & 78.6  & 14.0\%             & 13.9\% \\
+  & Soft ($\lambda\!=\!1$)   & 173.5 & 70.3  & \phantom{0}4.1\%       & \phantom{0}0.3\% \\
+  & Soft ($\lambda\!=\!10$)  & 186.4 & 60.5  & \phantom{0}1.9\%       & \phantom{0}0.1\% \\
+  & \textbf{Hard}        & 246.5 & 69.4  & \textbf{0.00\%}    & 0.00\% \\
+  & \textbf{Hard (ReLU)} & 104.3 & 86.2  & \textbf{0.00\%}    & 0.00\% \\
+  & Log-param$^\dagger$  & \textbf{0.272} & \textbf{0.219} & \textbf{0.00\%} & 0.00\% \\
+  & Hard (IO)            & 2926  & 443   & \textbf{0.00\%}    & 0.00\% \\
+\midrule
+\multirow{6}{*}{Batch $A{\to}B{\to}C$}
+  & None                 & 0.494 & 0.113 & $2.11{\times}10^{-2}$ & $1.09{\times}10^{-2}$ \\
+  & Soft ($\lambda\!=\!1$)   & 0.610 & 0.065 & $1.81{\times}10^{-2}$ & $1.57{\times}10^{-2}$ \\
+  & Soft ($\lambda\!=\!10$)  & 1.028 & 0.267 & $1.50{\times}10^{-2}$ & $1.32{\times}10^{-2}$ \\
+  & \textbf{Hard}        & 0.431 & 0.124 & $4.95{\times}10^{-8}$ & $1.67{\times}10^{-8}$ \\
+  & Stoich$^\dagger$     & \textbf{0.026} & \textbf{0.029} &
+      $\mathbf{7.57{\times}10^{-8}}$ & $\mathbf{1.57{\times}10^{-8}}$ \\
+  & Hard (IO)            & 0.477 & 0.130 & $3.33{\times}10^{-8}$ & $3.10{\times}10^{-10}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\subsection{Penalty Reliability: Convergence and \texorpdfstring{$\lambda$}{Lambda} Sweep}
+\label{ssec:convergence}
+
+Figure~\ref{fig:combined}(a) shows hard enforcement at $0.00\%$ from epoch~1
+while seed~42 under soft $\lambda=10$ plateaus at $26.1\%$---the gap
+persists despite 500~epochs of training, independent of training budget.
+Panels (c--d) show the $\lambda$ sweep (unnormalised MSE; Table~\ref{tab:ablation}
+uses NMSE per Eq.~\ref{eq:nmse}): no $\lambda$ reaches zero violations; at
+$\lambda=100$ the mean rate is still $3.7\%$ and MSE is $81\%$ above hard.
+The violation-vs-$\lambda$ relationship is non-monotonic ($\lambda=10$ is
+\emph{worse} than $\lambda=1$: $6.6\%$ vs.\ $5.0\%$), reflecting non-monotonic
+sensitivity to loss landscape geometry.
+Panels (e--g) show per-seed violations: soft methods span up to 38~pp across
+seeds; hard collapses to zero; log-param on VDV is simultaneously
+zero-violation and accurate ($0.272\pm0.219$).
+
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=\textwidth]{fig_combined.pdf}
+  \caption{%
+    \textbf{Top row}: convergence on exothermic CSTR (500~epochs) and
+    soft penalty $\lambda$ sweep.
+    (a)~Positivity violation rate vs.\ epoch: hard (red) is $0.00\%$ from
+    epoch~1; soft seed~42 plateaus at $26.1\%$ even at $\lambda=10$.
+    (b)~NMSE (log scale) vs.\ epoch; shaded bands: $\min/\max$ across 3~seeds.
+    (c)~Violation rate vs.\ $\lambda$: no $\lambda$ reaches zero; $\lambda=10$
+    is non-monotonically \emph{worse} than $\lambda=1$.
+    (d)~Long-rollout MSE vs.\ $\lambda$ (unnormalised): $\lambda=100$ costs
+    $81\%$ accuracy above hard ($31.1$) for still-nonzero violations.
+    \textbf{Bottom row}: per-seed physics violations across all three
+    benchmarks (bars = mean; dots = individual seeds).
+    (e--f)~positivity violation (\%); (g)~mass drift (absolute).
+    Soft constraints span up to 38~pp across seeds; hard variants collapse
+    to zero; log-param on VDV is simultaneously zero-violation and accurate
+    ($0.272\pm0.219$); hard (softplus) on VDV is reproducibly poor ($246.5\pm69.4$).%
+  }
+  \label{fig:combined}
+\end{figure*}
+
+
+% -----------------------------------------------------------------------
+\section{Conclusion}
+\label{sec:conclusion}
+
+No single inductive bias dominates, but the choice is principled: use hard
+enforcement for mixed or unknown state structure, log-param for
+all-concentration states, stoich-param for reaction-explicit systems.
+Soft penalty methods are unreliable: the training--inference gap produces
+seed-dependent, $\lambda$-insensitive violations within tested budgets
+($\lambda=1$--$100$, 500~epochs).
+Hard enforcement is the safe default (0.00\% violations everywhere; 99\% NMSE
+reduction on exothermic CSTR) but carries a map-specific accuracy cost (VDV CSTR):
+softplus hard ($246.5$) is outperformed by ReLU projection ($104.3$, $0.00\%$
+violations), approaching unconstrained accuracy (mean $104.3$) while eliminating all violations.
+Gradient flow through $g$ during training is essential.
+
+\paragraph{Limitations.}
+Guarantees hold only at discrete ODE output points; if the RHS requires strict
+positivity ($\log C$, $1/C$ in kinetics), enforce within solver stages or
+reparameterise the state.
+Port-Hamiltonian and GENERIC constraints are evaluated in soft mode only; hard
+enforcement for dissipative structures and scaling to industrial PFRs are open.
+
+
+\begin{ack}
+  Code and data: \url{https://github.com/ktubhyam/reactor-twin}.
+  Experiments run on Apple M-series CPU.
+\end{ack}
+
+% -----------------------------------------------------------------------
+\bibliographystyle{abbrvnat}
+\bibliography{references}
+
+\end{document}

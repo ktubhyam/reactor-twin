@@ -5,31 +5,39 @@ Three benchmark systems:
   2. Van de Vusse CSTR      (state=[C_A,C_B,C_C,C_D], dim=4, constraint=positivity)
   3. A->B->C Batch reactor  (state=[C_A, C_B, C_C],   dim=3, constraint=mass_balance)
 
-Four conditions (applied uniformly):
-  - none:      No constraints (baseline)
-  - soft:      Soft penalty in training loss (lambda=1.0)
-  - soft_high: Soft penalty with higher weight (lambda=10.0)
-  - hard:      Exact architectural projection at inference
+Conditions per system type:
+  CSTR systems (positivity constraint):
+    - none:               No constraints (baseline)
+    - soft:               Soft penalty, lambda=1.0
+    - soft_high:          Soft penalty, lambda=10.0
+    - hard:               Hard softplus feasibility map at inference + gradient flow at training
+    - log_param:          Log-space parameterization (architectural positivity guarantee)
+    - hard_inference_only: Train unconstrained; apply hard map only at inference
+
+  Batch system (mass balance constraint):
+    - none / soft / soft_high / hard: same as above but with mass-balance projection
+    - stoich_param:       Stoichiometric rate parameterization (architectural mass conservation)
+    - hard_inference_only: Train unconstrained; apply hard projection only at inference
 
 Three random seeds (42, 43, 44) for variance estimates.
 
 Metrics per system:
-  - mse_short:      MSE over first 30% of rollout horizon
-  - mse_long:       MSE over last 50% of rollout horizon (long-horizon stress test)
-  - nmse_long:      Normalized MSE (per-dimension normalization, scale-invariant)
-  - physics_viol:   Positivity violation rate (% negative concs) for CSTRs;
-                    mass drift |ΔΣC| for batch reactor
-  - pre_proj_drift: (hard only) relative norm of projection correction ||z - P(z)|| / ||z||
-                    shows how much the model learned to stay near the manifold during training
+  - mse_short:       MSE over first 30% of rollout horizon
+  - mse_long:        MSE over last 50% of rollout horizon
+  - nmse_long:       Normalized MSE (per-dimension normalization, scale-invariant)
+  - physics_viol:    Positivity violation rate (% negative concs) for CSTRs;
+                     mass drift |ΔΣC| for batch reactor
+  - min_conc:        Minimum concentration value (violation magnitude; CSTRs only)
+  - integrated_neg:  Mean magnitude of negative concentrations (CSTRs only)
+  - pre_proj_drift:  (hard/hard_inference_only) relative projection correction norm
 
 Additional experiments:
-  - Lambda sweep:    soft constraint weight in {0.01, 0.1, 1.0, 10.0, 100.0}
-                     (exothermic CSTR, 3 seeds each)
-  - Speedup benchmark: scipy first-principles vs NeuralODE inference
-  - Per-timestep MSE: saved for Figure 1 (long-rollout curve)
+  - Lambda sweep: soft constraint weight sweep (exothermic CSTR, 3 seeds)
+  - Speedup benchmark: scipy vs NeuralODE inference timing
+  - Convergence curve: violations vs epoch (500 epochs)
 
 Output:
-  - results/paper_results.json  (full numerical results + per-timestep MSE)
+  - results/paper_results.json
   - LaTeX table rows printed to stdout
 
 Run: python3 scripts/experiments_paper.py
@@ -47,7 +55,9 @@ from typing import Any
 
 import numpy as np
 import torch
+import torch.nn as nn
 from scipy.integrate import solve_ivp
+from torchdiffeq import odeint as _tde_odeint
 
 from reactor_twin import (
     BatchReactor,
@@ -82,8 +92,78 @@ GRAD_CLIP = 5.0
 SHORT_END = int(0.3 * N_TIMES)   # 15 — first 30 %
 LONG_START = int(0.5 * N_TIMES)  # 25 — last 50 %
 
-CONDITIONS = ["none", "soft", "soft_high", "hard"]
+CONDITIONS = ["none", "soft", "soft_high", "hard"]  # base (convergence / lambda sweep)
+CSTR_CONDITIONS = [
+    "none", "soft", "soft_high", "hard", "log_param", "hard_inference_only",
+]
+BATCH_CONDITIONS = [
+    "none", "soft", "soft_high", "hard", "stoich_param", "hard_inference_only",
+]
+DISPLAY_ORDER = [
+    "none", "soft", "soft_high", "hard",
+    "log_param", "stoich_param", "hard_inference_only",
+]
+
+_LOG_EPS = 1e-6   # floor for log-space parameterisation
+
 RESULTS_DIR = Path(__file__).parent.parent / "results"
+
+
+# ---------------------------------------------------------------------------
+# Stoichiometric-rate parameterized model (architectural mass conservation)
+# ---------------------------------------------------------------------------
+
+class _StoichODEFunc(nn.Module):
+    """ODE right-hand side that outputs dC/dt = S^T r(z).
+
+    Mass is conserved by construction because each row of S sums to zero
+    for balanced reactions (atoms are neither created nor destroyed).
+    """
+
+    def __init__(
+        self,
+        state_dim: int,
+        n_reactions: int,
+        stoich_T: torch.Tensor,
+        hidden_dim: int,
+        num_layers: int,
+    ) -> None:
+        super().__init__()
+        layers: list[nn.Module] = [nn.Linear(state_dim, hidden_dim), nn.Tanh()]
+        for _ in range(num_layers - 2):
+            layers += [nn.Linear(hidden_dim, hidden_dim), nn.Tanh()]
+        layers.append(nn.Linear(hidden_dim, n_reactions))
+        self.rate_net = nn.Sequential(*layers)
+        self.register_buffer("stoich_T", stoich_T)  # (n_species, n_reactions)
+
+    def forward(self, t: torch.Tensor, z: torch.Tensor) -> torch.Tensor:
+        r = self.rate_net(z)                              # (batch, n_reactions)
+        return r @ self.stoich_T.T                        # (batch, state_dim)
+
+
+class _StoichModel(nn.Module):
+    """NeuralODE wrapper using stoichiometric-rate parameterization.
+
+    Interface matches NeuralODE: forward(z0, t_span) -> (batch, T, state_dim).
+    """
+
+    def __init__(
+        self,
+        state_dim: int,
+        n_reactions: int,
+        stoich_T: torch.Tensor,
+        hidden_dim: int,
+        num_layers: int,
+    ) -> None:
+        super().__init__()
+        self.odefunc = _StoichODEFunc(
+            state_dim, n_reactions, stoich_T, hidden_dim, num_layers
+        )
+
+    def forward(self, z0: torch.Tensor, t_span: torch.Tensor) -> torch.Tensor:
+        # _tde_odeint returns (T, batch, state_dim) → permute to (batch, T, state_dim)
+        traj = _tde_odeint(self.odefunc, z0, t_span, method="rk4")
+        return traj.permute(1, 0, 2)
 
 
 # ---------------------------------------------------------------------------
@@ -260,14 +340,15 @@ def _build_constraint(
     if condition == "none":
         return None
     cfg = SYSTEMS[sys_key]
-    # soft / soft_high → soft mode; hard → hard mode
-    mode = "hard" if condition == "hard" else "soft"
+    # soft / soft_high → soft mode; hard / hard_relu → hard mode
+    mode = "hard" if condition in ("hard", "hard_relu") else "soft"
     if cfg["constraint_type"] == "positivity":
+        method = "relu" if condition == "hard_relu" else "softplus"
         return PositivityConstraint(
             mode=mode,
             weight=LAMBDA_WEIGHT,
             indices=cfg["pos_indices"],
-            method="softplus",
+            method=method,
         )
     else:  # mass_balance
         stoich_tensor = (
@@ -300,6 +381,39 @@ def _mass_drift(preds: torch.Tensor, n_species: int) -> float:
     total = preds[..., :n_species].sum(dim=-1)   # (batch, time)
     ref = total[:, 0:1]                           # (batch, 1)
     return (total - ref).abs().mean().item()
+
+
+def _min_conc(
+    preds: torch.Tensor,
+    indices: list[int] | None,
+    n_species: int,
+) -> float:
+    """Minimum concentration value across all timesteps and species.
+
+    A value < 0 quantifies the worst violation magnitude; 0 means no violation.
+    """
+    if indices is not None:
+        concs = preds[..., indices]
+    else:
+        concs = preds[..., :n_species]
+    return concs.min().item()
+
+
+def _integrated_neg(
+    preds: torch.Tensor,
+    indices: list[int] | None,
+    n_species: int,
+) -> float:
+    """Mean magnitude of negative concentration entries: E[max(0, -C)].
+
+    Zero when all concentrations are non-negative.  Positive values quantify
+    the average depth of negativity across time, batch, and species.
+    """
+    if indices is not None:
+        concs = preds[..., indices]
+    else:
+        concs = preds[..., :n_species]
+    return (-concs).clamp(min=0.0).mean().item()
 
 
 def _compute_physics_viol(
@@ -368,56 +482,105 @@ def _train_one(
     seed: int,
     lambda_weight: float = LAMBDA_WEIGHT,
 ) -> dict[str, Any]:
-    """Train a NeuralODE under one (system, condition, seed).
+    """Train under one (system, condition, seed) and return evaluation metrics.
+
+    Conditions handled:
+      none             — unconstrained baseline
+      soft / soft_high — soft penalty during training only
+      hard             — hard constraint applied during training (gradient flow) + inference
+      log_param        — log-space parameterisation (CSTR only; architectural positivity)
+      stoich_param     — stoichiometric rate ODE (batch only; architectural mass conservation)
+      hard_inference_only — train unconstrained; apply hard constraint only at inference
 
     Returns dict with mse_short, mse_long, nmse_long, physics_viol,
-    pre_proj_drift, train_time_s, and per_timestep_mse (list of N_TIMES floats).
+    min_conc, integrated_neg, pre_proj_drift, train_time_s, per_timestep_mse.
     """
     torch.manual_seed(seed)
-    state_dim = z0_train.shape[1]
-
-    model = NeuralODE(
-        state_dim=state_dim,
-        hidden_dim=HIDDEN_DIM,
-        num_layers=NUM_LAYERS,
-        solver="rk4",
-        adjoint=False,
-    )
-
-    constraint = _build_constraint(sys_key, condition)
-    optimizer = torch.optim.Adam(model.parameters(), lr=LR)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=N_EPOCHS)
     cfg = SYSTEMS[sys_key]
+    state_dim = z0_train.shape[1]
     n_species = cfg["n_species"]
     pos_indices = cfg["pos_indices"]
+    is_positivity = cfg["constraint_type"] == "positivity"
+
+    # Concentration indices for log_param and violation magnitude metrics
+    conc_idx: list[int] = (
+        list(pos_indices) if pos_indices is not None else list(range(n_species))
+    )
+
+    # ----- Build model -----
+    if condition == "stoich_param":
+        stoich = torch.tensor(cfg["stoich"], dtype=torch.float32)
+        model: nn.Module = _StoichModel(
+            state_dim=state_dim,
+            n_reactions=stoich.shape[0],
+            stoich_T=stoich.T,
+            hidden_dim=HIDDEN_DIM,
+            num_layers=NUM_LAYERS,
+        )
+    else:
+        model = NeuralODE(
+            state_dim=state_dim,
+            hidden_dim=HIDDEN_DIM,
+            num_layers=NUM_LAYERS,
+            solver="rk4",
+            adjoint=False,
+        )
+
+    # ----- Constraint objects -----
+    # Soft constraint (used during training for soft/soft_high)
+    soft_constraint: MassBalanceConstraint | PositivityConstraint | None = None
+    if condition in ("soft", "soft_high"):
+        soft_constraint = _build_constraint(sys_key, condition)
+
+    # Hard constraint (applied at inference for hard, hard_relu, and hard_inference_only)
+    hard_constraint: MassBalanceConstraint | PositivityConstraint | None = None
+    if condition in ("hard", "hard_relu", "hard_inference_only"):
+        hard_constraint = _build_constraint(sys_key, condition if condition != "hard_inference_only" else "hard")
+
+    # ----- Data preparation for log_param -----
+    # log_param: train in log-concentration space; temperature (if present) stays linear.
+    if condition == "log_param":
+        z0_tr = z0_train.clone()
+        z0_tr[:, conc_idx] = torch.log(z0_train[:, conc_idx].clamp(min=_LOG_EPS))
+        tgt_tr = targets_train.clone()
+        tgt_tr[..., conc_idx] = torch.log(
+            targets_train[..., conc_idx].clamp(min=_LOG_EPS)
+        )
+        z0_v = z0_val.clone()
+        z0_v[:, conc_idx] = torch.log(z0_val[:, conc_idx].clamp(min=_LOG_EPS))
+    else:
+        z0_tr, tgt_tr, z0_v = z0_train, targets_train, z0_val
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=N_EPOCHS)
 
     t0 = time.perf_counter()
     model.train()
 
     for _ in range(N_EPOCHS):
         optimizer.zero_grad()
-        preds = model(z0_train, t_span)  # (batch, time, state_dim)
+        preds = model(z0_tr, t_span)  # (batch, time, state_dim)
 
-        if condition == "none" or constraint is None:
-            loss = torch.mean((preds - targets_train) ** 2)
+        if condition in ("none", "log_param", "stoich_param", "hard_inference_only"):
+            loss = torch.mean((preds - tgt_tr) ** 2)
 
         elif condition in ("soft", "soft_high"):
-            loss = torch.mean((preds - targets_train) ** 2)
-            if cfg["constraint_type"] == "positivity":
-                # Apply only to species dims
-                if pos_indices is not None:
-                    concs = preds[..., pos_indices]
-                else:
-                    concs = preds[..., :n_species]
-                _, viol = constraint(concs)
-            else:  # mass_balance — species only, no temperature
-                constraint.reset()  # type: ignore[union-attr]
-                _, viol = constraint(preds[..., :n_species])
+            loss = torch.mean((preds - tgt_tr) ** 2)
+            if is_positivity:
+                concs_p = (
+                    preds[..., pos_indices]
+                    if pos_indices is not None
+                    else preds[..., :n_species]
+                )
+                _, viol = soft_constraint(concs_p)  # type: ignore[misc]
+            else:
+                soft_constraint.reset()  # type: ignore[union-attr]
+                _, viol = soft_constraint(preds[..., :n_species])  # type: ignore[misc]
             loss = loss + lambda_weight * viol
 
-        else:  # hard
-            preds_proj = _apply_hard_constraint(preds, constraint, sys_key)
-            loss = torch.mean((preds_proj - targets_train) ** 2)
+        else:  # hard — gradient flows through projection during training
+            preds_proj = _apply_hard_constraint(preds, hard_constraint, sys_key)
+            loss = torch.mean((preds_proj - tgt_tr) ** 2)
 
         loss.backward()  # type: ignore[no-untyped-call]
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=GRAD_CLIP)
@@ -426,28 +589,44 @@ def _train_one(
 
     train_time = time.perf_counter() - t0
 
-    # Evaluation
-    # Normalization factors: mean absolute value per state dim over val targets.
-    # Clamp to MIN_NORM before squaring to prevent near-zero species (e.g. VDV C_D
-    # starts at 0) from blowing up NMSE to millions.
-    MIN_NORM = 1e-2  # mol/L floor — any concentration < 0.01 treated as 0.01 scale
+    # ----- Evaluation -----
+    # NMSE normalisation uses original-space targets throughout (even for log_param).
+    MIN_NORM = 1e-2
     norm_factors = targets_val.abs().mean(dim=(0, 1))  # (state_dim,)
     norm_sq = (
         torch.clamp(norm_factors, min=MIN_NORM) ** 2
-    ).unsqueeze(0).unsqueeze(0)  # (1,1,state_dim)
+    ).unsqueeze(0).unsqueeze(0)  # (1, 1, state_dim)
 
     model.eval()
     with torch.no_grad():
-        raw_val_preds = model(z0_val, t_span)
+        raw_val_preds = model(z0_v, t_span)
 
         pre_proj_drift = 0.0
-        if condition == "hard" and constraint is not None:
-            proj_val_preds = _apply_hard_constraint(raw_val_preds, constraint, sys_key)
+
+        if condition == "log_param":
+            # Inverse transform: exp() for concentration dims, linear for temperature
+            val_preds = raw_val_preds.clone()
+            val_preds[..., conc_idx] = torch.exp(raw_val_preds[..., conc_idx])
+
+        elif condition in ("hard", "hard_relu"):
+            proj = _apply_hard_constraint(raw_val_preds, hard_constraint, sys_key)
             pre_proj_drift = (
-                torch.norm(raw_val_preds - proj_val_preds) /
+                torch.norm(raw_val_preds - proj) /
                 (torch.norm(raw_val_preds) + 1e-8)
             ).item()
-            val_preds = proj_val_preds
+            val_preds = proj
+
+        elif condition == "hard_inference_only":
+            # Projection applied only now; model was trained without it.
+            # pre_proj_drift here quantifies how far an unconstrained model
+            # strays from the constraint manifold at inference.
+            proj = _apply_hard_constraint(raw_val_preds, hard_constraint, sys_key)
+            pre_proj_drift = (
+                torch.norm(raw_val_preds - proj) /
+                (torch.norm(raw_val_preds) + 1e-8)
+            ).item()
+            val_preds = proj
+
         else:
             val_preds = raw_val_preds
 
@@ -457,11 +636,21 @@ def _train_one(
     phys_viol = _compute_physics_viol(val_preds, sys_key)
     ts_mse = _per_timestep_mse(val_preds, targets_val)
 
+    # Violation magnitude (CSTRs only)
+    min_c = (
+        _min_conc(val_preds, pos_indices, n_species) if is_positivity else 0.0
+    )
+    int_neg = (
+        _integrated_neg(val_preds, pos_indices, n_species) if is_positivity else 0.0
+    )
+
     return {
         "mse_short": mse_short,
         "mse_long": mse_long,
         "nmse_long": nmse_long,
         "physics_viol": phys_viol,
+        "min_conc": min_c,
+        "integrated_neg": int_neg,
         "pre_proj_drift": pre_proj_drift,
         "train_time_s": train_time,
         "per_timestep_mse": ts_mse,
@@ -473,7 +662,11 @@ def _train_one(
 # ---------------------------------------------------------------------------
 
 def run_ablation(rng_seed: int = 0) -> dict[str, Any]:
-    """Run 3 systems × 3 conditions × 3 seeds."""
+    """Run 3 systems × (6–7 conditions) × 3 seeds.
+
+    CSTR systems use CSTR_CONDITIONS (includes log_param, hard_inference_only).
+    Batch system uses BATCH_CONDITIONS (includes stoich_param, hard_inference_only).
+    """
     rng = np.random.default_rng(rng_seed)
     all_results: dict[str, dict[str, list[dict[str, Any]]]] = {}
 
@@ -487,9 +680,15 @@ def run_ablation(rng_seed: int = 0) -> dict[str, Any]:
         z0_val, _, traj_val = _generate_dataset(sys_key, N_VAL_TRAJ, rng)
         print(f"  Generated {z0_train.shape[0]} train / {z0_val.shape[0]} val trajectories")
 
-        sys_results: dict[str, list[dict[str, Any]]] = {c: [] for c in CONDITIONS}
+        # System-specific condition list
+        sys_conds = (
+            CSTR_CONDITIONS
+            if cfg["constraint_type"] == "positivity"
+            else BATCH_CONDITIONS
+        )
+        sys_results: dict[str, list[dict[str, Any]]] = {c: [] for c in sys_conds}
 
-        for cond in CONDITIONS:
+        for cond in sys_conds:
             print(f"\n  Condition: {cond!r}")
             lam = LAMBDA_HIGH if cond == "soft_high" else LAMBDA_WEIGHT
             for seed in SEEDS:
@@ -499,15 +698,25 @@ def run_ablation(rng_seed: int = 0) -> dict[str, Any]:
                     lambda_weight=lam,
                 )
                 sys_results[cond].append(r)
-                viol_label = "mass_drift" if cfg["constraint_type"] == "mass_balance" else "pos_viol%"
+                viol_label = (
+                    "mass_drift" if cfg["constraint_type"] == "mass_balance"
+                    else "pos_viol%"
+                )
                 drift_str = (
-                    f"  drift={r['pre_proj_drift']:.4f}" if cond == "hard" else ""
+                    f"  drift={r['pre_proj_drift']:.4f}"
+                    if cond in ("hard", "hard_inference_only")
+                    else ""
+                )
+                min_c_str = (
+                    f"  min_conc={r['min_conc']:.4f}"
+                    if cfg["constraint_type"] == "positivity"
+                    else ""
                 )
                 print(
                     f"    seed={seed}  mse_long={r['mse_long']:.5f}  "
                     f"nmse_long={r['nmse_long']:.5f}  "
                     f"{viol_label}={r['physics_viol']:.4f}"
-                    f"{drift_str}  t={r['train_time_s']:.1f}s"
+                    f"{drift_str}{min_c_str}  t={r['train_time_s']:.1f}s"
                 )
 
         all_results[sys_key] = sys_results
@@ -780,56 +989,70 @@ def _ms(values: list[float]) -> tuple[float, float]:
 # ---------------------------------------------------------------------------
 
 def _print_ablation_table(all_results: dict[str, Any]) -> None:
-    print("\n\n" + "=" * 100)
-    print("TABLE 1 — Main Ablation (hard vs soft vs no constraints)")
+    print("\n\n" + "=" * 110)
+    print("TABLE 1 — Main Ablation")
     print(
         "System | Condition | MSE_long ± std | NMSE_long ± std | "
-        "Physics Viol ± std | PreProj Drift"
+        "Physics Viol ± std | min_conc | int_neg | PreProj Drift"
     )
-    print("=" * 100)
+    print("=" * 110)
 
     cond_labels_plain = {
         "none": "No constraint",
         "soft": "Soft (λ=1)",
         "soft_high": "Soft (λ=10)",
-        "hard": "Hard (projection)",
+        "hard": "Hard (proj+train)",
+        "log_param": "Log-param",
+        "stoich_param": "Stoich-param",
+        "hard_inference_only": "Hard (infer only)",
     }
     cond_labels_latex = {
         "none": "No constraint",
         "soft": r"Soft ($\lambda=1$)",
         "soft_high": r"Soft ($\lambda=10$)",
-        "hard": r"\textbf{Hard (projection)}",
+        "hard": r"\textbf{Hard}",
+        "log_param": r"Log-param",
+        "stoich_param": r"Stoich-param",
+        "hard_inference_only": r"Hard (infer only)",
     }
 
     for sys_key, sys_res in all_results.items():
         cfg = SYSTEMS[sys_key]
         viol_name = "Mass drift" if cfg["constraint_type"] == "mass_balance" else "Pos viol %"
-        for cond in CONDITIONS:
+        for cond in DISPLAY_ORDER:
+            if cond not in sys_res:
+                continue
             runs = sys_res[cond]
             ml_m, ml_s = _ms([r["mse_long"] for r in runs])
             nm_m, nm_s = _ms([r["nmse_long"] for r in runs])
             pv_m, pv_s = _ms([r["physics_viol"] for r in runs])
             drift_m = _ms([r["pre_proj_drift"] for r in runs])[0]
-            drift_str = f"{drift_m:.4f}" if cond == "hard" else "—"
+            min_c_m = _ms([r.get("min_conc", 0.0) for r in runs])[0]
+            int_neg_m = _ms([r.get("integrated_neg", 0.0) for r in runs])[0]
+            drift_str = (
+                f"{drift_m:.4f}" if cond in ("hard", "hard_inference_only") else "—"
+            )
             print(
                 f"  {cfg['name']:<24} | {cond_labels_plain[cond]:<18} | "
                 f"{ml_m:.5f}±{ml_s:.5f} | "
                 f"{nm_m:.5f}±{nm_s:.5f} | "
                 f"{pv_m:.4f}±{pv_s:.4f} | "
-                f"{drift_str}"
+                f"{min_c_m:+.4f} | {int_neg_m:.4e} | {drift_str}"
             )
         print()
 
     print("\nLaTeX rows (paste into Table 1):")
     for sys_key, sys_res in all_results.items():
         cfg = SYSTEMS[sys_key]
-        for cond in CONDITIONS:
+        for cond in DISPLAY_ORDER:
+            if cond not in sys_res:
+                continue
             runs = sys_res[cond]
             ml_m, ml_s = _ms([r["mse_long"] for r in runs])
             nm_m, nm_s = _ms([r["nmse_long"] for r in runs])
             pv_m, pv_s = _ms([r["physics_viol"] for r in runs])
             viol_str = (
-                r"\textbf{0.00}" if (cond == "hard" and pv_m < 1e-4)
+                r"\textbf{0.00}" if pv_m < 1e-4
                 else f"${pv_m:.4f} \\pm {pv_s:.4f}$"
             )
             print(
@@ -948,6 +1171,43 @@ def _print_paper_summary(all_results: dict[str, Any]) -> None:
         ratio = ml_soph / (ml_soft + 1e-12)
         print(f"  {cfg['name']}: soft(λ=10) MSE = {ratio:.2f}× soft(λ=1)")
 
+    # Hard vs hard_inference_only: isolates training regularization effect
+    print("\n[Hard vs Hard-inference-only: training regularization vs post-correction]")
+    for sys_key, sys_res in all_results.items():
+        cfg = SYSTEMS[sys_key]
+        if "hard_inference_only" not in sys_res:
+            continue
+        ml_hard = _ms([r["mse_long"] for r in sys_res["hard"]])[0]
+        ml_hio = _ms([r["mse_long"] for r in sys_res["hard_inference_only"]])[0]
+        pv_hard = _ms([r["physics_viol"] for r in sys_res["hard"]])[0]
+        pv_hio = _ms([r["physics_viol"] for r in sys_res["hard_inference_only"]])[0]
+        drift_hard = _ms([r["pre_proj_drift"] for r in sys_res["hard"]])[0]
+        drift_hio = _ms([r["pre_proj_drift"] for r in sys_res["hard_inference_only"]])[0]
+        print(
+            f"  {cfg['name']}: hard MSE={ml_hard:.5f} viol={pv_hard:.4f} drift={drift_hard:.4f}"
+        )
+        print(
+            f"  {cfg['name']}: hio  MSE={ml_hio:.5f} viol={pv_hio:.4f} drift={drift_hio:.4f}"
+        )
+        print(
+            f"  {cfg['name']}: MSE gap (hard - hio) = {ml_hard - ml_hio:.5f} "
+            f"(negative = regularization helps)"
+        )
+
+    # Violation magnitude summary (CSTRs)
+    print("\n[Violation magnitude: min_conc and integrated_neg (CSTRs)]")
+    for sys_key, sys_res in all_results.items():
+        cfg = SYSTEMS[sys_key]
+        if cfg["constraint_type"] != "positivity":
+            continue
+        print(f"  {cfg['name']}:")
+        for cond in DISPLAY_ORDER:
+            if cond not in sys_res:
+                continue
+            mc_m = _ms([r.get("min_conc", 0.0) for r in sys_res[cond]])[0]
+            in_m = _ms([r.get("integrated_neg", 0.0) for r in sys_res[cond]])[0]
+            print(f"    {cond:<22}  min_conc={mc_m:+.4f}  integrated_neg={in_m:.4e}")
+
 
 # ---------------------------------------------------------------------------
 # Save results to JSON
@@ -978,7 +1238,9 @@ def _save_json(
             "grad_clip": GRAD_CLIP,
             "short_end_idx": SHORT_END,
             "long_start_idx": LONG_START,
-            "conditions": CONDITIONS,
+            "base_conditions": CONDITIONS,
+            "cstr_conditions": CSTR_CONDITIONS,
+            "batch_conditions": BATCH_CONDITIONS,
         },
         "ablation": all_results,
         "lambda_sweep": sweep_serializable,
@@ -996,13 +1258,17 @@ def _save_json(
     rows = []
     for sys_key, sys_res in all_results.items():
         cfg = SYSTEMS[sys_key]
-        for cond in CONDITIONS:
+        for cond in DISPLAY_ORDER:
+            if cond not in sys_res:
+                continue
             runs = sys_res[cond]
             ms_m, ms_s = _ms([r["mse_short"] for r in runs])
             ml_m, ml_s = _ms([r["mse_long"] for r in runs])
             nm_m, nm_s = _ms([r["nmse_long"] for r in runs])
             pv_m, pv_s = _ms([r["physics_viol"] for r in runs])
             drift_m, drift_s = _ms([r["pre_proj_drift"] for r in runs])
+            mc_m, mc_s = _ms([r.get("min_conc", 0.0) for r in runs])
+            in_m, in_s = _ms([r.get("integrated_neg", 0.0) for r in runs])
             rows.append({
                 "system": sys_key,
                 "system_name": cfg["name"],
@@ -1012,6 +1278,8 @@ def _save_json(
                 "mse_long_mean": ml_m, "mse_long_std": ml_s,
                 "nmse_long_mean": nm_m, "nmse_long_std": nm_s,
                 "physics_viol_mean": pv_m, "physics_viol_std": pv_s,
+                "min_conc_mean": mc_m, "min_conc_std": mc_s,
+                "integrated_neg_mean": in_m, "integrated_neg_std": in_s,
                 "pre_proj_drift_mean": drift_m, "pre_proj_drift_std": drift_s,
             })
     with open(csv_path, "w", newline="") as f:

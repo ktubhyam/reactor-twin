@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-03-02
+
+### Added
+- `CITATION.cff` — GitHub citation support (preferred: ML4PS paper; fallback: software)
+- `scripts/run_relu_ablation.py` — targeted runner for VDV CSTR ReLU projection ablation
+- Hard (ReLU) condition in `scripts/experiments_paper.py` — uses `PositivityConstraint(method="relu")`; results: NMSE 104.3 ± 86.2, 0.00% violations on VDV CSTR
+
+### Changed
+- README: added Research section with ML4PS @ NeurIPS 2026 paper citation and key findings
+- README: updated Citation section with paper + software BibTeX
+- README: fixed "constraint manifolds" → post-solve feasibility maps / feasible sets
+- Corrected measured inference speedup: 11–19× (19×/16×/11× exo/VDV/batch vs scipy LSODA rtol=10⁻⁷)
+- `scripts/generate_figures.py`: added `hard_relu` styling and display order
+
 ## [1.1.0] - 2026-03-01
 
 ### Added
@@ -308,7 +322,9 @@ Initial architecture setup. Foundation for physics-constrained Neural DEs.
 - MIT License
 - README with quickstart and examples
 
-[Unreleased]: https://github.com/ktubhyam/reactor-twin/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/ktubhyam/reactor-twin/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/ktubhyam/reactor-twin/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/ktubhyam/reactor-twin/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ktubhyam/reactor-twin/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/ktubhyam/reactor-twin/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/ktubhyam/reactor-twin/compare/v0.3.0...v0.3.1

@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use ReactorTwin, please cite the paper and/or the software."
+title: "ReactorTwin: Physics-Constrained Neural Differential Equations for Chemical Reactor Digital Twins"
+type: software
+authors:
+  - family-names: Karthikeyan
+    given-names: Tubhyam
+    email: tubhyam@ictmumbai.edu.in
+    affiliation: "Institute of Chemical Technology, Mumbai"
+repository-code: "https://github.com/ktubhyam/reactor-twin"
+url: "https://tubhyam.dev/projects/reactor-twin"
+license: MIT
+version: "1.1.1"
+date-released: "2026-03-02"
+keywords:
+  - neural-ode
+  - chemical-reactor
+  - physics-constraints
+  - digital-twin
+  - surrogate-model
+preferred-citation:
+  type: conference-paper
+  title: "Choosing Physics Constraints for Neural ODE Reactor Surrogates"
+  authors:
+    - family-names: Karthikeyan
+      given-names: Tubhyam
+      email: tubhyam@ictmumbai.edu.in
+      affiliation: "Institute of Chemical Technology, Mumbai"
+  collection-title: "Machine Learning for Physical Sciences (ML4PS) Workshop at NeurIPS 2026"
+  year: 2026
+  url: "https://github.com/ktubhyam/reactor-twin"
