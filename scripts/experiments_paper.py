@@ -427,10 +427,14 @@ def _train_one(
     train_time = time.perf_counter() - t0
 
     # Evaluation
-    # Normalization factors: mean absolute value per state dim over val targets
-    # Gives scale-invariant MSE (e.g. T~350K vs C~0.5 mol/L treated equally)
+    # Normalization factors: mean absolute value per state dim over val targets.
+    # Clamp to MIN_NORM before squaring to prevent near-zero species (e.g. VDV C_D
+    # starts at 0) from blowing up NMSE to millions.
+    MIN_NORM = 1e-2  # mol/L floor — any concentration < 0.01 treated as 0.01 scale
     norm_factors = targets_val.abs().mean(dim=(0, 1))  # (state_dim,)
-    norm_sq = (norm_factors ** 2 + 1e-8).unsqueeze(0).unsqueeze(0)  # (1,1,state_dim)
+    norm_sq = (
+        torch.clamp(norm_factors, min=MIN_NORM) ** 2
+    ).unsqueeze(0).unsqueeze(0)  # (1,1,state_dim)
 
     model.eval()
     with torch.no_grad():
@@ -557,8 +561,11 @@ def _train_convergence(
         optimizer, T_max=N_CONVERGENCE_EPOCHS
     )
 
+    MIN_NORM = 1e-2
     norm_factors = targets_val.abs().mean(dim=(0, 1))
-    norm_sq = (norm_factors ** 2 + 1e-8).unsqueeze(0).unsqueeze(0)
+    norm_sq = (
+        torch.clamp(norm_factors, min=MIN_NORM) ** 2
+    ).unsqueeze(0).unsqueeze(0)
 
     epochs_logged: list[int] = []
     viol_curve: list[float] = []
