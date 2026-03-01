@@ -290,11 +290,12 @@ class FaultIsolator:
         else:
             cov_inv = np.eye(self.state_dim)
 
-        # Contribution of each variable to the squared Mahalanobis distance
+        # Contribution of each variable to the squared Mahalanobis distance.
+        # Uses diagonal entries only: contribution_i = residual_i^2 * cov_inv[i,i].
+        # Always non-negative and interpretable without sign-cancellation issues.
         contributions = np.array(
-            [residual[i] * (cov_inv[i, :] @ residual) for i in range(self.state_dim)]
+            [residual[i] ** 2 * cov_inv[i, i] for i in range(self.state_dim)]
         )
-        contributions = np.abs(contributions)
 
         ranking = np.argsort(contributions)[::-1].tolist()
 

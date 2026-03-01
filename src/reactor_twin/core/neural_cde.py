@@ -275,26 +275,142 @@ class NeuralCDE(AbstractNeuralDE):
     ) -> torch.Tensor:
         """Handle irregularly-sampled observations.
 
+        Builds a unified time grid from the union of observation_times and
+        prediction_times, places observations at their respective time indices,
+        linearly interpolates to fill gaps, solves the CDE over the full grid,
+        and returns predictions at prediction_times.
+
         Args:
             observations: Observations at irregular times,
                 shape (batch, num_obs, input_dim).
-            observation_times: Times of observations, shape (batch, num_obs).
+            observation_times: Shared observation times, shape (num_obs,).
+                Must be 1D — the same time grid for every batch element.
             prediction_times: Times to predict at, shape (num_pred,).
 
         Returns:
             Predictions at prediction_times, shape (batch, num_pred, output_dim).
-        """
-        # For irregularly-sampled data, we need to:
-        # 1. Sort observations by time
-        # 2. Interpolate to create control path
-        # 3. Solve CDE and evaluate at prediction_times
 
-        # This is a placeholder - full implementation requires handling
-        # variable-length sequences per batch element
-        raise NotImplementedError(
-            "Irregular observations not yet fully implemented. "
-            "Use regular grid with forward() and controls argument."
+        Raises:
+            ValueError: If observation_times is not 1D.
+        """
+        if observation_times.ndim != 1:
+            raise ValueError(
+                "observation_times must be 1D (shared across batch elements). "
+                f"Got shape {tuple(observation_times.shape)}. "
+                "If observation times differ per batch element, pad with NaN and "
+                "use a shared superset grid."
+            )
+
+        batch_size, num_obs, _ = observations.shape
+        device = observations.device
+        dtype = observations.dtype
+
+        # Build unified time grid: sorted union of observation and prediction times
+        all_times = torch.cat([observation_times.to(dtype), prediction_times.to(dtype)])
+        unified_times, _ = torch.sort(torch.unique(all_times))
+        n_unified = unified_times.shape[0]
+
+        # Create observation tensor on unified grid, NaN-filled initially
+        X_unified = torch.full(
+            (batch_size, n_unified, self.input_dim),
+            float("nan"),
+            dtype=dtype,
+            device=device,
         )
+
+        # Place observations at their respective positions in unified_times
+        for k in range(num_obs):
+            t_k = observation_times[k].to(dtype)
+            matches = (unified_times == t_k).nonzero(as_tuple=True)[0]
+            if len(matches) > 0:
+                X_unified[:, matches[0], :] = observations[:, k, :]
+
+        # Fill NaN gaps by linear interpolation
+        X_unified = _fill_nan_linear(X_unified)
+
+        # Build control path interpolation
+        if self.interpolation == "linear":
+            coeffs = torchcde.linear_interpolation_coeffs(X_unified, unified_times)
+            X_path = torchcde.LinearInterpolation(coeffs, unified_times)
+        elif self.interpolation == "cubic":
+            coeffs = torchcde.natural_cubic_coeffs(X_unified, unified_times)
+            X_path = torchcde.CubicSpline(coeffs, unified_times)
+        else:
+            raise ValueError(f"Unknown interpolation: {self.interpolation}")
+
+        # Initial hidden state from first observation
+        z_initial = self.initial_network(observations[:, 0, :])  # (batch, state_dim)
+
+        # Solve CDE over unified grid
+        z_trajectory = torchcde.cdeint(
+            X=X_path,
+            func=self.cde_func,
+            z0=z_initial,
+            t=unified_times,
+            method=self.solver,
+            rtol=self.rtol,
+            atol=self.atol,
+            adjoint=self.adjoint,
+        )
+        # z_trajectory: (batch, n_unified, state_dim)
+
+        # Readout
+        predictions_unified = cast(
+            torch.Tensor, self.readout(cast(torch.Tensor, z_trajectory))
+        )  # (batch, n_unified, output_dim)
+
+        # Extract at prediction_times indices (all are guaranteed in unified_times)
+        pred_indices = torch.tensor(
+            [int((unified_times == t.to(dtype)).nonzero(as_tuple=True)[0][0])
+             for t in prediction_times],
+            device=device,
+        )
+
+        return predictions_unified[:, pred_indices, :]
+
+
+def _fill_nan_linear(x: torch.Tensor) -> torch.Tensor:
+    """Fill NaN values by linear interpolation along the time axis (dim 1).
+
+    Leading/trailing NaNs are filled by constant extrapolation from the
+    nearest known value.
+
+    Args:
+        x: Tensor of shape (batch, time, dim) with possible NaN entries.
+
+    Returns:
+        Tensor of same shape with NaNs replaced.
+    """
+    result = x.clone()
+    batch, n_time, n_dim = result.shape
+    t_idx = torch.arange(n_time, dtype=x.dtype, device=x.device)
+
+    for d in range(n_dim):
+        y = result[:, :, d]  # (batch, time)
+        valid_mask = ~torch.isnan(y)  # (batch, time)
+
+        for b in range(batch):
+            valid = valid_mask[b]
+            if valid.all() or not valid.any():
+                continue
+
+            known_t = t_idx[valid]
+            known_v = y[b, valid]
+            query_t = t_idx[~valid]
+
+            # Clamp to known range for constant extrapolation at edges
+            query_t_clamped = query_t.clamp(known_t[0], known_t[-1])
+
+            right = torch.searchsorted(known_t.contiguous(), query_t_clamped.contiguous())
+            right = right.clamp(1, len(known_t) - 1)
+            left = right - 1
+
+            t0, t1 = known_t[left], known_t[right]
+            v0, v1 = known_v[left], known_v[right]
+            alpha = ((query_t_clamped - t0) / (t1 - t0).clamp(min=1e-8))
+            result[b, ~valid, d] = v0 + alpha * (v1 - v0)
+
+    return result
 
 
 __all__ = ["NeuralCDE", "CDEFunc"]
