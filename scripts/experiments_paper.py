@@ -5,18 +5,22 @@ Three benchmark systems:
   2. Van de Vusse CSTR      (state=[C_A,C_B,C_C,C_D], dim=4, constraint=positivity)
   3. A->B->C Batch reactor  (state=[C_A, C_B, C_C],   dim=3, constraint=mass_balance)
 
-Three conditions (applied uniformly):
-  - none:  No constraints (baseline)
-  - soft:  Soft penalty in training loss (lambda=1.0)
-  - hard:  Exact architectural projection at inference
+Four conditions (applied uniformly):
+  - none:      No constraints (baseline)
+  - soft:      Soft penalty in training loss (lambda=1.0)
+  - soft_high: Soft penalty with higher weight (lambda=10.0)
+  - hard:      Exact architectural projection at inference
 
 Three random seeds (42, 43, 44) for variance estimates.
 
 Metrics per system:
-  - mse_short:     MSE over first 30% of rollout horizon
-  - mse_long:      MSE over last 50% of rollout horizon (long-horizon stress test)
-  - physics_viol:  Positivity violation rate (% negative concs) for CSTRs;
-                   mass drift |ΔΣC| for batch reactor
+  - mse_short:      MSE over first 30% of rollout horizon
+  - mse_long:       MSE over last 50% of rollout horizon (long-horizon stress test)
+  - nmse_long:      Normalized MSE (per-dimension normalization, scale-invariant)
+  - physics_viol:   Positivity violation rate (% negative concs) for CSTRs;
+                    mass drift |ΔΣC| for batch reactor
+  - pre_proj_drift: (hard only) relative norm of projection correction ||z - P(z)|| / ||z||
+                    shows how much the model learned to stay near the manifold during training
 
 Additional experiments:
   - Lambda sweep:    soft constraint weight in {0.01, 0.1, 1.0, 10.0, 100.0}
@@ -62,21 +66,23 @@ logger = logging.getLogger(__name__)
 # Hyperparameters
 # ---------------------------------------------------------------------------
 SEEDS = [42, 43, 44]
-N_EPOCHS = 100
+N_EPOCHS = 200
 LR = 1e-3
-HIDDEN_DIM = 32
-NUM_LAYERS = 2
-N_TRAIN_TRAJ = 16
+HIDDEN_DIM = 64
+NUM_LAYERS = 3
+N_TRAIN_TRAJ = 24
 N_VAL_TRAJ = 8
 N_TIMES = 50
 LAMBDA_WEIGHT = 1.0
+LAMBDA_HIGH = 10.0
 LAMBDA_SWEEP_VALUES = [0.01, 0.1, 1.0, 10.0, 100.0]
 N_SPEEDUP_TRAJ = 100
+GRAD_CLIP = 5.0
 
 SHORT_END = int(0.3 * N_TIMES)   # 15 — first 30 %
 LONG_START = int(0.5 * N_TIMES)  # 25 — last 50 %
 
-CONDITIONS = ["none", "soft", "hard"]
+CONDITIONS = ["none", "soft", "soft_high", "hard"]
 RESULTS_DIR = Path(__file__).parent.parent / "results"
 
 
@@ -254,7 +260,8 @@ def _build_constraint(
     if condition == "none":
         return None
     cfg = SYSTEMS[sys_key]
-    mode = "soft" if condition == "soft" else "hard"
+    # soft / soft_high → soft mode; hard → hard mode
+    mode = "hard" if condition == "hard" else "soft"
     if cfg["constraint_type"] == "positivity":
         return PositivityConstraint(
             mode=mode,
@@ -338,6 +345,18 @@ def _apply_hard_constraint(
 # Training
 # ---------------------------------------------------------------------------
 
+def _nmse_slice(
+    preds: torch.Tensor,
+    targets: torch.Tensor,
+    start: int,
+    end: int,
+    norm_sq: torch.Tensor,
+) -> float:
+    """Normalized MSE slice: per-dimension normalization by mean absolute target."""
+    sq_err = (preds[:, start:end, :] - targets[:, start:end, :]) ** 2
+    return torch.mean(sq_err / norm_sq).item()
+
+
 def _train_one(
     sys_key: str,
     z0_train: torch.Tensor,
@@ -351,8 +370,8 @@ def _train_one(
 ) -> dict[str, Any]:
     """Train a NeuralODE under one (system, condition, seed).
 
-    Returns dict with mse_short, mse_long, physics_viol, train_time_s,
-    and per_timestep_mse (list of N_TIMES floats).
+    Returns dict with mse_short, mse_long, nmse_long, physics_viol,
+    pre_proj_drift, train_time_s, and per_timestep_mse (list of N_TIMES floats).
     """
     torch.manual_seed(seed)
     state_dim = z0_train.shape[1]
@@ -367,6 +386,7 @@ def _train_one(
 
     constraint = _build_constraint(sys_key, condition)
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=N_EPOCHS)
     cfg = SYSTEMS[sys_key]
     n_species = cfg["n_species"]
     pos_indices = cfg["pos_indices"]
@@ -381,7 +401,7 @@ def _train_one(
         if condition == "none" or constraint is None:
             loss = torch.mean((preds - targets_train) ** 2)
 
-        elif condition == "soft":
+        elif condition in ("soft", "soft_high"):
             loss = torch.mean((preds - targets_train) ** 2)
             if cfg["constraint_type"] == "positivity":
                 # Apply only to species dims
@@ -400,27 +420,45 @@ def _train_one(
             loss = torch.mean((preds_proj - targets_train) ** 2)
 
         loss.backward()  # type: ignore[no-untyped-call]
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=GRAD_CLIP)
         optimizer.step()
+        scheduler.step()
 
     train_time = time.perf_counter() - t0
 
     # Evaluation
+    # Normalization factors: mean absolute value per state dim over val targets
+    # Gives scale-invariant MSE (e.g. T~350K vs C~0.5 mol/L treated equally)
+    norm_factors = targets_val.abs().mean(dim=(0, 1))  # (state_dim,)
+    norm_sq = (norm_factors ** 2 + 1e-8).unsqueeze(0).unsqueeze(0)  # (1,1,state_dim)
+
     model.eval()
     with torch.no_grad():
-        val_preds = model(z0_val, t_span)
-        if condition == "hard":
-            val_preds = _apply_hard_constraint(val_preds, constraint, sys_key)
+        raw_val_preds = model(z0_val, t_span)
+
+        pre_proj_drift = 0.0
+        if condition == "hard" and constraint is not None:
+            proj_val_preds = _apply_hard_constraint(raw_val_preds, constraint, sys_key)
+            pre_proj_drift = (
+                torch.norm(raw_val_preds - proj_val_preds) /
+                (torch.norm(raw_val_preds) + 1e-8)
+            ).item()
+            val_preds = proj_val_preds
+        else:
+            val_preds = raw_val_preds
 
     mse_short = _mse_slice(val_preds, targets_val, 0, SHORT_END)
     mse_long = _mse_slice(val_preds, targets_val, LONG_START, N_TIMES)
+    nmse_long = _nmse_slice(val_preds, targets_val, LONG_START, N_TIMES, norm_sq)
     phys_viol = _compute_physics_viol(val_preds, sys_key)
     ts_mse = _per_timestep_mse(val_preds, targets_val)
 
     return {
         "mse_short": mse_short,
         "mse_long": mse_long,
+        "nmse_long": nmse_long,
         "physics_viol": phys_viol,
+        "pre_proj_drift": pre_proj_drift,
         "train_time_s": train_time,
         "per_timestep_mse": ts_mse,
     }
@@ -449,18 +487,23 @@ def run_ablation(rng_seed: int = 0) -> dict[str, Any]:
 
         for cond in CONDITIONS:
             print(f"\n  Condition: {cond!r}")
+            lam = LAMBDA_HIGH if cond == "soft_high" else LAMBDA_WEIGHT
             for seed in SEEDS:
                 r = _train_one(
                     sys_key, z0_train, t_span, traj_train,
                     z0_val, traj_val, cond, seed,
+                    lambda_weight=lam,
                 )
                 sys_results[cond].append(r)
                 viol_label = "mass_drift" if cfg["constraint_type"] == "mass_balance" else "pos_viol%"
+                drift_str = (
+                    f"  drift={r['pre_proj_drift']:.4f}" if cond == "hard" else ""
+                )
                 print(
-                    f"    seed={seed}  mse_short={r['mse_short']:.5f}  "
-                    f"mse_long={r['mse_long']:.5f}  "
-                    f"{viol_label}={r['physics_viol']:.4f}  "
-                    f"t={r['train_time_s']:.1f}s"
+                    f"    seed={seed}  mse_long={r['mse_long']:.5f}  "
+                    f"nmse_long={r['nmse_long']:.5f}  "
+                    f"{viol_label}={r['physics_viol']:.4f}"
+                    f"{drift_str}  t={r['train_time_s']:.1f}s"
                 )
 
         all_results[sys_key] = sys_results
@@ -592,29 +635,43 @@ def _ms(values: list[float]) -> tuple[float, float]:
 # ---------------------------------------------------------------------------
 
 def _print_ablation_table(all_results: dict[str, Any]) -> None:
-    print("\n\n" + "=" * 80)
+    print("\n\n" + "=" * 100)
     print("TABLE 1 — Main Ablation (hard vs soft vs no constraints)")
-    print("System | Condition | MSE_short ± std | MSE_long ± std | Physics Viol ± std")
-    print("=" * 80)
+    print(
+        "System | Condition | MSE_long ± std | NMSE_long ± std | "
+        "Physics Viol ± std | PreProj Drift"
+    )
+    print("=" * 100)
+
+    cond_labels_plain = {
+        "none": "No constraint",
+        "soft": "Soft (λ=1)",
+        "soft_high": "Soft (λ=10)",
+        "hard": "Hard (projection)",
+    }
+    cond_labels_latex = {
+        "none": "No constraint",
+        "soft": r"Soft ($\lambda=1$)",
+        "soft_high": r"Soft ($\lambda=10$)",
+        "hard": r"\textbf{Hard (projection)}",
+    }
 
     for sys_key, sys_res in all_results.items():
         cfg = SYSTEMS[sys_key]
         viol_name = "Mass drift" if cfg["constraint_type"] == "mass_balance" else "Pos viol %"
         for cond in CONDITIONS:
             runs = sys_res[cond]
-            ms_m, ms_s = _ms([r["mse_short"] for r in runs])
             ml_m, ml_s = _ms([r["mse_long"] for r in runs])
+            nm_m, nm_s = _ms([r["nmse_long"] for r in runs])
             pv_m, pv_s = _ms([r["physics_viol"] for r in runs])
-            cond_label = {
-                "none": "No constraint",
-                "soft": "Soft (λ=1)",
-                "hard": "Hard (projection)",
-            }[cond]
+            drift_m = _ms([r["pre_proj_drift"] for r in runs])[0]
+            drift_str = f"{drift_m:.4f}" if cond == "hard" else "—"
             print(
-                f"  {cfg['name']:<24} | {cond_label:<18} | "
-                f"{ms_m:.5f}±{ms_s:.5f} | "
+                f"  {cfg['name']:<24} | {cond_labels_plain[cond]:<18} | "
                 f"{ml_m:.5f}±{ml_s:.5f} | "
-                f"{pv_m:.4f}±{pv_s:.4f}"
+                f"{nm_m:.5f}±{nm_s:.5f} | "
+                f"{pv_m:.4f}±{pv_s:.4f} | "
+                f"{drift_str}"
             )
         print()
 
@@ -623,22 +680,17 @@ def _print_ablation_table(all_results: dict[str, Any]) -> None:
         cfg = SYSTEMS[sys_key]
         for cond in CONDITIONS:
             runs = sys_res[cond]
-            ms_m, ms_s = _ms([r["mse_short"] for r in runs])
             ml_m, ml_s = _ms([r["mse_long"] for r in runs])
+            nm_m, nm_s = _ms([r["nmse_long"] for r in runs])
             pv_m, pv_s = _ms([r["physics_viol"] for r in runs])
-            cond_label = {
-                "none": "No constraint",
-                "soft": r"Soft ($\lambda=1$)",
-                "hard": r"\textbf{Hard (projection)}",
-            }[cond]
             viol_str = (
                 r"\textbf{0.00}" if (cond == "hard" and pv_m < 1e-4)
                 else f"${pv_m:.4f} \\pm {pv_s:.4f}$"
             )
             print(
-                f"  {cfg['name']} & {cond_label} & "
-                f"${ms_m:.5f} \\pm {ms_s:.5f}$ & "
+                f"  {cfg['name']} & {cond_labels_latex[cond]} & "
                 f"${ml_m:.5f} \\pm {ml_s:.5f}$ & "
+                f"${nm_m:.5f} \\pm {nm_s:.5f}$ & "
                 f"{viol_str} \\\\"
             )
         print("  \\midrule")
@@ -701,22 +753,55 @@ def _print_paper_summary(all_results: dict[str, Any]) -> None:
         pv_m, pv_s = _ms([r["physics_viol"] for r in runs])
         print(f"  {cfg['name']}: physics_viol(hard) = {pv_m:.2e} ± {pv_s:.2e}")
 
-    # MSE improvement: hard vs none
-    print("\n[MSE improvement: hard vs none (long horizon)]")
+    # MSE improvement: hard vs none (raw and normalized)
+    print("\n[MSE improvement: hard vs none (long horizon, raw & normalized)]")
     for sys_key, sys_res in all_results.items():
         cfg = SYSTEMS[sys_key]
         ml_none = _ms([r["mse_long"] for r in sys_res["none"]])[0]
         ml_hard = _ms([r["mse_long"] for r in sys_res["hard"]])[0]
-        improvement = 100.0 * (ml_none - ml_hard) / (ml_none + 1e-12)
-        print(f"  {cfg['name']}: {improvement:.1f}% MSE reduction (none→hard)")
+        nm_none = _ms([r["nmse_long"] for r in sys_res["none"]])[0]
+        nm_hard = _ms([r["nmse_long"] for r in sys_res["hard"]])[0]
+        raw_impr = 100.0 * (ml_none - ml_hard) / (ml_none + 1e-12)
+        norm_impr = 100.0 * (nm_none - nm_hard) / (nm_none + 1e-12)
+        ratio_raw = ml_none / (ml_hard + 1e-12)
+        ratio_norm = nm_none / (nm_hard + 1e-12)
+        print(
+            f"  {cfg['name']}: raw MSE {raw_impr:.1f}% reduction ({ratio_raw:.2f}×)  |  "
+            f"norm NMSE {norm_impr:.1f}% reduction ({ratio_norm:.2f}×)"
+        )
 
-    # Soft vs hard physics violation comparison
-    print("\n[Soft vs hard physics violation]")
+    # Training-inference gap: soft ≈ none evidence
+    print("\n[Training-inference gap: soft constraint at inference (physics violation)]")
     for sys_key, sys_res in all_results.items():
         cfg = SYSTEMS[sys_key]
+        pv_none = _ms([r["physics_viol"] for r in sys_res["none"]])[0]
         pv_soft = _ms([r["physics_viol"] for r in sys_res["soft"]])[0]
+        pv_soph = _ms([r["physics_viol"] for r in sys_res["soft_high"]])[0]
         pv_hard = _ms([r["physics_viol"] for r in sys_res["hard"]])[0]
-        print(f"  {cfg['name']}: soft={pv_soft:.4f}  hard={pv_hard:.2e}")
+        print(
+            f"  {cfg['name']}: none={pv_none:.4f}  soft(λ=1)={pv_soft:.4f}  "
+            f"soft(λ=10)={pv_soph:.4f}  hard={pv_hard:.2e}"
+        )
+
+    # Pre-projection drift: hard mode manifold proximity
+    print("\n[Pre-projection drift (hard mode): model proximity to constraint manifold]")
+    for sys_key, sys_res in all_results.items():
+        cfg = SYSTEMS[sys_key]
+        runs_hard = sys_res["hard"]
+        drift_m, drift_s = _ms([r["pre_proj_drift"] for r in runs_hard])
+        print(
+            f"  {cfg['name']}: drift = {drift_m:.4f} ± {drift_s:.4f}  "
+            f"(low = model learned manifold proximity)"
+        )
+
+    # Soft (λ=10) vs soft (λ=1) MSE comparison
+    print("\n[MSE cost of high soft penalty (λ=10 vs λ=1)]")
+    for sys_key, sys_res in all_results.items():
+        cfg = SYSTEMS[sys_key]
+        ml_soft = _ms([r["mse_long"] for r in sys_res["soft"]])[0]
+        ml_soph = _ms([r["mse_long"] for r in sys_res["soft_high"]])[0]
+        ratio = ml_soph / (ml_soft + 1e-12)
+        print(f"  {cfg['name']}: soft(λ=10) MSE = {ratio:.2f}× soft(λ=1)")
 
 
 # ---------------------------------------------------------------------------
@@ -743,8 +828,11 @@ def _save_json(
             "n_val_traj": N_VAL_TRAJ,
             "n_times": N_TIMES,
             "lambda_weight": LAMBDA_WEIGHT,
+            "lambda_high": LAMBDA_HIGH,
+            "grad_clip": GRAD_CLIP,
             "short_end_idx": SHORT_END,
             "long_start_idx": LONG_START,
+            "conditions": CONDITIONS,
         },
         "ablation": all_results,
         "lambda_sweep": sweep_serializable,
@@ -765,7 +853,9 @@ def _save_json(
             runs = sys_res[cond]
             ms_m, ms_s = _ms([r["mse_short"] for r in runs])
             ml_m, ml_s = _ms([r["mse_long"] for r in runs])
+            nm_m, nm_s = _ms([r["nmse_long"] for r in runs])
             pv_m, pv_s = _ms([r["physics_viol"] for r in runs])
+            drift_m, drift_s = _ms([r["pre_proj_drift"] for r in runs])
             rows.append({
                 "system": sys_key,
                 "system_name": cfg["name"],
@@ -773,7 +863,9 @@ def _save_json(
                 "constraint_type": cfg["constraint_type"],
                 "mse_short_mean": ms_m, "mse_short_std": ms_s,
                 "mse_long_mean": ml_m, "mse_long_std": ml_s,
+                "nmse_long_mean": nm_m, "nmse_long_std": nm_s,
                 "physics_viol_mean": pv_m, "physics_viol_std": pv_s,
+                "pre_proj_drift_mean": drift_m, "pre_proj_drift_std": drift_s,
             })
     with open(csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=rows[0].keys())
@@ -788,10 +880,10 @@ def _save_json(
 
 def main() -> None:
     print("ReactorTwin Paper Experiments")
-    print(f"Seeds: {SEEDS}  Epochs: {N_EPOCHS}  "
-          f"Hidden: {HIDDEN_DIM}  Layers: {NUM_LAYERS}")
-    print(f"Train traj: {N_TRAIN_TRAJ}  Val traj: {N_VAL_TRAJ}  "
-          f"Time points: {N_TIMES}")
+    print(f"Seeds: {SEEDS}  Epochs: {N_EPOCHS}  Hidden: {HIDDEN_DIM}  Layers: {NUM_LAYERS}")
+    print(f"Train traj: {N_TRAIN_TRAJ}  Val traj: {N_VAL_TRAJ}  Time points: {N_TIMES}")
+    print(f"Lambda: {LAMBDA_WEIGHT} (soft) / {LAMBDA_HIGH} (soft_high)  GradClip: {GRAD_CLIP}")
+    print(f"Conditions: {CONDITIONS}")
 
     t_total_start = time.perf_counter()
 
