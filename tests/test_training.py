@@ -589,6 +589,18 @@ class TestMultiObjectiveLossForward:
         assert "positivity" in losses
         assert losses["positivity"].item() > 0.0
 
+    def test_constraint_default_weight_one(self, sample_predictions, sample_targets):
+        """Constraint not in weights dict must default to weight=1.0, not 0."""
+        constraint = PositivityConstraint(mode="soft", weight=1.0)
+        # 'positivity' deliberately omitted from weights
+        loss_fn = MultiObjectiveLoss(weights={"data": 1.0}, constraints=[constraint])
+        assert loss_fn.weights.get("positivity") == 1.0
+        neg_preds = -torch.abs(sample_predictions)
+        losses = loss_fn(neg_preds, sample_targets)
+        assert "positivity" in losses
+        # total must be strictly greater than data alone (constraint contributes)
+        assert losses["total"].item() > losses["data"].item()
+
     def test_zero_loss_for_identical_tensors(self, multi_loss, sample_targets):
         losses = multi_loss(sample_targets, sample_targets)
         assert losses["data"].item() == pytest.approx(0.0, abs=1e-7)

@@ -622,6 +622,36 @@ class TestStoichiometricConstraint:
         raw = c.compute_violation(z)
         torch.testing.assert_close(violation, 2.0 * raw)
 
+    def test_project_state_dim_gt_n_species_2d(self, stoich_matrix):
+        """project() must handle state_dim > num_species (e.g. state = [C_A, C_B, T])."""
+        c = StoichiometricConstraint(stoich_matrix=stoich_matrix)
+        # state_dim=3: 2 species + 1 temperature
+        z = torch.tensor([[1.0, -1.0, 350.0]])  # (batch=1, state_dim=3)
+        z_proj = c.project(z)
+        assert z_proj.shape == z.shape
+        # Species part [1, -1] is in stoich subspace → unchanged
+        torch.testing.assert_close(z_proj[0, :2], z[0, :2], atol=1e-5, rtol=1e-5)
+        # Temperature must be preserved exactly
+        assert z_proj[0, 2].item() == pytest.approx(350.0, abs=1e-6)
+
+    def test_project_state_dim_gt_n_species_3d(self, stoich_matrix):
+        """3D project() preserves non-species dims when state_dim > num_species."""
+        c = StoichiometricConstraint(stoich_matrix=stoich_matrix)
+        # (batch=2, time=3, state_dim=3): 2 species + 1 extra
+        z = torch.randn(2, 3, 3)
+        z_proj = c.project(z)
+        assert z_proj.shape == z.shape
+        # Non-species dim must be identical
+        torch.testing.assert_close(z_proj[..., 2], z[..., 2])
+
+    def test_violation_state_dim_gt_n_species(self, stoich_matrix):
+        """compute_violation must not raise for state_dim > num_species."""
+        c = StoichiometricConstraint(stoich_matrix=stoich_matrix, mode="soft")
+        # [1, 1] is NOT in stoich subspace, T=350 is extra
+        z = torch.tensor([[1.0, 1.0, 350.0]])
+        violation = c.compute_violation(z)
+        assert violation.item() > 0.0
+
 
 # ===========================================================================
 # PortHamiltonianConstraint tests

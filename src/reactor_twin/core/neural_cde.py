@@ -359,12 +359,12 @@ class NeuralCDE(AbstractNeuralDE):
             torch.Tensor, self.readout(cast(torch.Tensor, z_trajectory))
         )  # (batch, n_unified, output_dim)
 
-        # Extract at prediction_times indices (all are guaranteed in unified_times)
-        pred_indices = torch.tensor(
-            [int((unified_times == t.to(dtype)).nonzero(as_tuple=True)[0][0])
-             for t in prediction_times],
-            device=device,
+        # Extract at prediction_times indices.  Use searchsorted instead of float
+        # equality to avoid fragile [0][0] access on nonzero() results.
+        pred_indices = torch.searchsorted(
+            unified_times.contiguous(), prediction_times.to(dtype).contiguous()
         )
+        pred_indices = pred_indices.clamp(0, n_unified - 1)
 
         return predictions_unified[:, pred_indices, :]
 

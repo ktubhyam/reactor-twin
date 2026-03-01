@@ -84,15 +84,25 @@ class StoichiometricConstraint(AbstractConstraint):
         nu_nu_T_inv = torch.linalg.pinv(nu_nu_T)
         P = nu_T @ nu_nu_T_inv @ nu  # (species, species)
 
-        # Apply projection
+        # Project only the species dimensions; remaining dims (e.g. temperature)
+        # are passed through unchanged.  Without this guard, z @ P.T raises a
+        # shape error whenever state_dim > num_species (the common reactor case).
+        n = self.num_species
+        z_species = z[..., :n]
+
         if z.ndim == 2:  # (batch, state_dim)
-            z_projected = z @ P.T
+            z_proj_species = z_species @ P.T
         elif z.ndim == 3:  # (batch, time, state_dim)
-            z_projected = torch.einsum("bts,sr->btr", z, P)
+            z_proj_species = torch.einsum("bts,sr->btr", z_species, P)
         else:
             raise ValueError(f"Unsupported z shape: {z.shape}")
 
-        return cast(torch.Tensor, z_projected)
+        if z.shape[-1] > n:
+            z_out = z.clone()
+            z_out[..., :n] = z_proj_species
+            return cast(torch.Tensor, z_out)
+
+        return cast(torch.Tensor, z_proj_species)
 
     def compute_violation(self, z: torch.Tensor) -> torch.Tensor:
         """Compute stoichiometric violation penalty (soft mode).

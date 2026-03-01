@@ -41,6 +41,12 @@ class MultiObjectiveLoss(nn.Module):
         self.weights = weights or {"data": 1.0}
         self.constraints = constraints or []
 
+        # Auto-populate weight=1.0 for any constraint whose name is not in weights.
+        # Without this, self.weights.get(name, 0.0) silently zeros out soft constraints.
+        for constraint in self.constraints:
+            if constraint.name not in self.weights:
+                self.weights[constraint.name] = 1.0
+
         logger.info(f"Initialized MultiObjectiveLoss: weights={self.weights}")
 
     def data_loss(
