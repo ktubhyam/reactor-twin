@@ -191,9 +191,8 @@ class EKFStateEstimator:
 
         # Jacobian for covariance propagation
         F = self._compute_jacobian(z_est, t)
-        # Matrix exponential approximation: F_d ≈ I + F*dt + 0.5*(F*dt)^2
-        F_dt = F * dt
-        F_d = torch.eye(self.state_dim, device=self.device) + F_dt + 0.5 * F_dt @ F_dt
+        # Discrete-time state transition matrix via matrix exponential
+        F_d = torch.linalg.matrix_exp(F * dt)
 
         P_pred = F_d @ P @ F_d.T + self.Q
 
@@ -225,8 +224,9 @@ class EKFStateEstimator:
         # Innovation covariance
         S = H @ P_pred @ H.T + self.R
 
-        # Kalman gain
-        K = P_pred @ H.T @ torch.linalg.inv(S)
+        # Kalman gain via solve (avoids explicit inversion of S)
+        # K S = P H^T  =>  S^T K^T = H P^T  =>  K = solve(S, H P^T)^T
+        K = torch.linalg.solve(S, H @ P_pred.T).T
 
         # State update
         z_upd = z_pred + K @ innovation

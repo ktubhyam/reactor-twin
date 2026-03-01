@@ -134,6 +134,7 @@ class ReactorDataGenerator:
             initial_conditions = np.maximum(initial_conditions, 0)  # Keep non-negative
 
         trajectories = []
+        valid_ics: list[npt.NDArray[Any]] = []
         for i in range(batch_size):
             y0 = initial_conditions[i]
             u = controls[i] if controls is not None else None
@@ -146,15 +147,22 @@ class ReactorDataGenerator:
                 retry = self.generate_trajectory(t_span, t_eval, y0_retry, u)
                 if retry["success"]:
                     trajectories.append(retry["y"])
-                    initial_conditions[i] = y0_retry
+                    valid_ics.append(y0_retry)
                 else:
-                    logger.warning(f"Retry also failed for trajectory {i}, using last valid")
-                    trajectories.append(np.zeros((len(t_eval), self.reactor.state_dim)))
+                    logger.warning(f"Retry also failed for trajectory {i}, skipping")
             else:
                 trajectories.append(result["y"])
+                valid_ics.append(y0)
 
+        if not trajectories:
+            raise RuntimeError(
+                "All trajectories in batch failed to integrate. "
+                "Check reactor parameters and initial conditions."
+            )
+
+        ic_array = np.stack(valid_ics)
         # Convert to torch tensors
-        z0 = torch.tensor(initial_conditions, dtype=torch.float32)
+        z0 = torch.tensor(ic_array, dtype=torch.float32)
         t_span_torch = torch.tensor(t_eval, dtype=torch.float32)
         targets = torch.tensor(np.stack(trajectories), dtype=torch.float32)
 

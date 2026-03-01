@@ -98,18 +98,28 @@ class EnergyBalanceConstraint(AbstractConstraint):
         C = z[..., :-1]  # (batch, time, num_species)
         T = z[..., -1]  # (batch, time)
 
-        # Compute energy change: ΔE ≈ Σ(C_i) * Cp * ΔT
-        # This is a simplified energy balance check
-        total_concentration = C.sum(dim=-1)  # (batch, time)
-
-        if self.heat_capacity is not None:
-            # Energy at each time step (arbitrary units)
-            energy = total_concentration * self.heat_capacity * T  # (batch, time)
-
-            # Penalize large energy changes (beyond what reactions should cause)
-            # This is a simplified check - full energy balance needs reaction rates
-            energy_change = torch.diff(energy, dim=1)  # (batch, time-1)
-            violation = torch.mean(energy_change**2)
+        if (
+            self.heat_capacity is not None
+            and self.heats_of_reaction is not None
+            and self.stoich_matrix is not None
+        ):
+            # Estimate reaction extents from concentration changes via stoichiometry
+            delta_C = torch.diff(C, dim=1)  # (batch, time-1, n_species)
+            S = self.stoich_matrix.to(z.device)  # (n_reactions, n_species)
+            ST_pinv = torch.linalg.pinv(S.T)  # (n_reactions, n_species)
+            delta_xi = torch.einsum("rn,btn->btr", ST_pinv, delta_C)  # (batch, time-1, n_reactions)
+            H_rxn = self.heats_of_reaction.to(z.device)  # (n_reactions,)
+            # Expected ΔT = -ΔH_rxn · Δξ / Cp (adiabatic energy balance)
+            delta_T_expected = -torch.einsum("r,btr->bt", H_rxn, delta_xi) / self.heat_capacity
+            delta_T_actual = torch.diff(T, dim=1)  # (batch, time-1)
+            violation = torch.mean((delta_T_actual - delta_T_expected) ** 2)
+        elif self.heat_capacity is not None:
+            # Only Cp available: penalize changes inconsistent with concentration changes
+            # ΔE_total = Cp * ΔT * Σ(C_i) — penalize imbalance between ΔT and Σ(ΔC_i)
+            delta_T = torch.diff(T, dim=1)  # (batch, time-1)
+            delta_C_total = torch.diff(C.sum(dim=-1), dim=1)  # (batch, time-1)
+            # Heuristic: Cp * ΔT should scale with Σ(ΔC_i); penalize mismatch
+            violation = torch.mean((self.heat_capacity * delta_T + delta_C_total) ** 2)
         else:
             # Without Cp, just penalize large temperature swings
             temp_change = torch.diff(T, dim=1)  # (batch, time-1)

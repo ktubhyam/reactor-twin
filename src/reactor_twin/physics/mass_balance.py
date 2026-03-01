@@ -82,32 +82,45 @@ class MassBalanceConstraint(AbstractConstraint):
     def project(self, z: torch.Tensor) -> torch.Tensor:
         """Project concentrations to satisfy mass balance (hard mode).
 
-        For time-dependent trajectories, we don't project the concentrations
-        directly, but rather ensure their *rates of change* respect stoichiometry.
-        This is handled in the ODE function itself.
+        When a stoichiometric matrix is provided, projects concentration
+        deviations from the initial state onto the stoichiometric subspace
+        (column space of S^T). This is the algorithm described in the paper.
 
-        For static concentrations, we can project to the nearest point that
-        conserves total mass.
+        Without a stoichiometric matrix, falls back to total-mass rescaling.
 
         Args:
             z: State tensor, shape (batch, state_dim) or (batch, time, state_dim).
 
         Returns:
-            Projected state (in this case, we primarily enforce via ODE dynamics).
+            Projected state satisfying mass balance.
         """
+        if self.stoich_matrix is not None:
+            P = self.projection_matrix.to(z.device)  # (n_species, n_species)
+            n_species = self.stoich_matrix.shape[1]
+
+            if z.ndim == 3:  # (batch, time, state_dim)
+                # Project concentration deviations from t=0 onto stoichiometric subspace
+                z0 = z[:, 0:1, :n_species]  # (batch, 1, n_species)
+                delta = z[..., :n_species] - z0  # (batch, time, n_species)
+                delta_proj = torch.einsum("ij,btj->bti", P, delta)
+                z_out = z.clone()
+                z_out[..., :n_species] = z0 + delta_proj
+                return z_out
+            # For 2D static inputs without a time axis, fall through to total-mass rescaling
+
         if self.check_total_mass:
-            # Store initial mass for conservation checking
-            if self.initial_mass is None:
-                self.initial_mass = z.sum(dim=-1, keepdim=True).detach()
+            if z.ndim == 3:  # (batch, time, state_dim)
+                # Rescale each time step to preserve t=0 total mass
+                ref_mass = z[:, 0:1, :].sum(dim=-1, keepdim=True)  # (batch, 1, 1)
+                current_mass = z.sum(dim=-1, keepdim=True)  # (batch, time, 1)
+                return z * (ref_mass / (current_mass + 1e-8))
+            else:  # (batch, state_dim)
+                # Store initial mass on first call; reset() clears it between batches
+                if self.initial_mass is None:
+                    self.initial_mass = z.sum(dim=-1, keepdim=True).detach()
+                current_mass = z.sum(dim=-1, keepdim=True)
+                return z * (self.initial_mass / (current_mass + 1e-8))
 
-            # Project to conserve total mass
-            current_mass = z.sum(dim=-1, keepdim=True)
-            z_projected = z * (self.initial_mass / (current_mass + 1e-8))
-
-            return z_projected
-
-        # If no total mass check, return as-is
-        # (mass balance is enforced in the ODE dynamics)
         return z
 
     def compute_violation(self, z: torch.Tensor) -> torch.Tensor:
@@ -121,15 +134,13 @@ class MassBalanceConstraint(AbstractConstraint):
         Returns:
             Scalar penalty for mass balance violation.
         """
-        if self.initial_mass is None:
-            # First call - store initial mass (detached: it's a reference constant)
-            self.initial_mass = z[..., 0, :].sum(dim=-1, keepdim=True).detach()  # (batch, 1)
-
-        # Compute mass at all time points
         if z.ndim == 3:  # (batch, time, state_dim)
+            # Always use t=0 as reference to avoid stale initial_mass across batches
             current_mass = z.sum(dim=-1)  # (batch, time)
-            target_mass = self.initial_mass.expand_as(current_mass)
+            target_mass = z[:, 0, :].sum(dim=-1, keepdim=True).expand_as(current_mass)
         else:  # (batch, state_dim)
+            if self.initial_mass is None:
+                self.initial_mass = z.sum(dim=-1, keepdim=True).detach()
             current_mass = z.sum(dim=-1)  # (batch,)
             target_mass = self.initial_mass.squeeze(-1)
 

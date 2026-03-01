@@ -328,7 +328,9 @@ class PortHamiltonianODEFunc(AbstractODEFunc):
         u: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute dz/dt = (J - R) grad_H(z) + B u."""
-        z_in = z.detach().requires_grad_(True)
+        # Do not detach z when it already requires grad — detaching severs the
+        # autograd graph and breaks the adjoint method (∂f/∂z becomes zero).
+        z_in = z if z.requires_grad else z.detach().requires_grad_(True)
         H = self.hamiltonian(z_in)
         grad_H = torch.autograd.grad(H.sum(), z_in, create_graph=True)[0]
 

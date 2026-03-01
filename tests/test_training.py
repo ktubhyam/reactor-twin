@@ -1179,8 +1179,8 @@ class TestDataGeneratorFailurePaths:
             # The trajectory should be the retry result (0.5s), not zeros
             assert torch.all(batch["targets"] > 0)
 
-    def test_batch_retry_both_fail_uses_zeros(self, isothermal_cstr):
-        """Cover lines 148-150: when both initial and retry fail, use zeros."""
+    def test_batch_retry_both_fail_raises(self, isothermal_cstr):
+        """When every trajectory fails (original + retry), RuntimeError is raised."""
         from unittest.mock import patch
 
         gen = ReactorDataGenerator(isothermal_cstr)
@@ -1195,7 +1195,5 @@ class TestDataGeneratorFailurePaths:
             }
 
         with patch.object(gen, "generate_trajectory", side_effect=always_fail):
-            batch = gen.generate_batch(1, t_span, t_eval)
-            assert batch["targets"].shape == (1, NUM_TIMES, STATE_DIM)
-            # Both attempts failed, should have zeros
-            assert torch.all(batch["targets"] == 0)
+            with pytest.raises(RuntimeError, match="All trajectories in batch failed"):
+                gen.generate_batch(1, t_span, t_eval)
