@@ -44,7 +44,7 @@ class GENERICConstraint(AbstractConstraint):
     def __init__(
         self,
         name: str = "generic",
-        mode: str = "hard",
+        mode: str = "soft",
         weight: float = 1.0,
         state_dim: int | None = None,
         learnable_L: bool = True,
@@ -74,7 +74,9 @@ class GENERICConstraint(AbstractConstraint):
         if mode == "hard" and state_dim is None:
             raise ValueError("state_dim required for hard GENERIC constraint")
 
-        if mode == "hard" and state_dim is not None:
+        # Initialize structure whenever state_dim is known
+        # (needed for both hard enforcement and soft compute_violation)
+        if state_dim is not None:
             self._initialize_structure()
 
         logger.debug(
@@ -180,7 +182,7 @@ class GENERICConstraint(AbstractConstraint):
             S = self.entropy_net(z).squeeze(-1)
         else:
             # Boltzmann-like: S(z) = -Σ(z_i ln z_i)
-            z_safe = torch.clamp(torch.abs(z), min=1e-8)
+            z_safe = torch.clamp(z, min=1e-8)
             S = -torch.sum(z_safe * torch.log(z_safe), dim=-1)
         return cast(torch.Tensor, S)
 
@@ -205,7 +207,7 @@ class GENERICConstraint(AbstractConstraint):
 
         return grad_E, grad_S
 
-    def project(self, z: torch.Tensor) -> torch.Tensor:
+    def compute_generic_dynamics(self, z: torch.Tensor) -> torch.Tensor:
         """Compute GENERIC dynamics: dz/dt = L * ∇E(z) + M * ∇S(z).
 
         Args:
@@ -230,6 +232,26 @@ class GENERICConstraint(AbstractConstraint):
         dz_dt = reversible_part + irreversible_part
 
         return dz_dt
+
+    def project(self, z: torch.Tensor) -> torch.Tensor:
+        """Not supported as a post-hoc state projection.
+
+        GENERIC structure cannot be enforced by projecting a state after the
+        fact — it must be built into the ODE function itself.
+        Use GENERICODEFunc for architectural hard enforcement, or
+        instantiate with mode='soft' to monitor GENERIC structure violations.
+
+        Args:
+            z: Unused.
+
+        Raises:
+            NotImplementedError: Always. Use compute_generic_dynamics() or soft mode.
+        """
+        raise NotImplementedError(
+            "Hard GENERIC projection is not supported as a post-hoc "
+            "state transform. Use GENERICODEFunc for architectural "
+            "hard enforcement, or mode='soft' for violation monitoring."
+        )
 
     def compute_violation(self, z: torch.Tensor) -> torch.Tensor:
         """Compute GENERIC structure violation (soft mode).

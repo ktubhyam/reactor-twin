@@ -41,7 +41,7 @@ class PortHamiltonianConstraint(AbstractConstraint):
     def __init__(
         self,
         name: str = "port_hamiltonian",
-        mode: str = "hard",
+        mode: str = "soft",
         weight: float = 1.0,
         state_dim: int | None = None,
         learnable_J: bool = True,
@@ -68,8 +68,9 @@ class PortHamiltonianConstraint(AbstractConstraint):
         if mode == "hard" and state_dim is None:
             raise ValueError("state_dim required for hard Port-Hamiltonian constraint")
 
-        # Initialize Port-Hamiltonian structure
-        if mode == "hard" and state_dim is not None:
+        # Initialize Port-Hamiltonian structure whenever state_dim is known
+        # (needed for both hard enforcement and soft compute_violation)
+        if state_dim is not None:
             self._initialize_structure()
 
         logger.debug(
@@ -169,10 +170,12 @@ class PortHamiltonianConstraint(AbstractConstraint):
 
         return grad_H
 
-    def project(self, z: torch.Tensor) -> torch.Tensor:
+    def compute_ph_dynamics(self, z: torch.Tensor) -> torch.Tensor:
         """Compute Port-Hamiltonian dynamics: dz/dt = (J - R) * ∇H(z).
 
-        This returns the dynamics, not a projected state.
+        Returns the ODE right-hand side under PH structure. This is used by
+        PortHamiltonianODEFunc for architectural hard enforcement.
+        For post-hoc constraint monitoring, use soft mode and compute_violation().
 
         Args:
             z: State, shape (batch, state_dim).
@@ -195,6 +198,26 @@ class PortHamiltonianConstraint(AbstractConstraint):
         dz_dt = torch.einsum("ij,bj->bi", JR, grad_H)  # (batch, state_dim)
 
         return dz_dt
+
+    def project(self, z: torch.Tensor) -> torch.Tensor:
+        """Not supported as a post-hoc state projection.
+
+        Port-Hamiltonian structure cannot be enforced by projecting a state
+        after the fact — it must be built into the ODE function itself.
+        Use PortHamiltonianODEFunc for architectural hard enforcement, or
+        instantiate with mode='soft' to monitor PH structure violations.
+
+        Args:
+            z: Unused.
+
+        Raises:
+            NotImplementedError: Always. Use compute_ph_dynamics() or soft mode.
+        """
+        raise NotImplementedError(
+            "Hard Port-Hamiltonian projection is not supported as a post-hoc "
+            "state transform. Use PortHamiltonianODEFunc for architectural "
+            "hard enforcement, or mode='soft' for violation monitoring."
+        )
 
     def compute_violation(self, z: torch.Tensor) -> torch.Tensor:
         """Compute Port-Hamiltonian structure violation (soft mode).

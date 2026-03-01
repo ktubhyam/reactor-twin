@@ -108,12 +108,16 @@ class ThermodynamicConstraint(AbstractConstraint):
             entropy_violations = torch.relu(-entropy_change)  # Penalize decreases
             violation = violation + torch.mean(entropy_violations)
 
-        # 2. Check Gibbs energy monotonicity (G = H - TS, simplified)
+        # 2. Check Gibbs energy monotonicity (G = H - TS, ideal solution approx.)
         if self.check_gibbs:
-            # Simplified Gibbs: G ≈ Σ(C_i * μ_i) where μ_i is chemical potential
-            # For simplicity, use G ≈ Σ(C_i) * T (arbitrary units)
-            total_concentration = C.sum(dim=-1)  # (batch, time)
-            gibbs = total_concentration * T.squeeze(-1)  # (batch, time)
+            # Dimensionless Gibbs free energy of mixing for an ideal solution:
+            # ΔG_mix / (RT * C_total) = Σ(x_i * ln(x_i)) where x_i are mole fractions.
+            # This is always <= 0; spontaneous mixing drives it toward zero.
+            # We penalise increases (dG/dt > 0) in this proxy.
+            C_safe = torch.clamp(C, min=1e-8)
+            C_total = C_safe.sum(dim=-1, keepdim=True)  # (batch, time, 1)
+            x = C_safe / C_total  # mole fractions, sums to 1 along last dim
+            gibbs = torch.sum(x * torch.log(x), dim=-1)  # (batch, time), dimensionless
 
             # Gibbs should not increase for spontaneous processes
             gibbs_change = torch.diff(gibbs, dim=1)  # (batch, time-1)
