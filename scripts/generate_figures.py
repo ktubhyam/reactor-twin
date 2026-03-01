@@ -243,7 +243,7 @@ def fig2_ablation(data: dict[str, Any]) -> None:
         for xi, (vm, vs) in zip(x_pos, zip(viol_means, viol_stds)):
             if vm < 1e-6:
                 ax2.annotate(
-                    "✓ 0",
+                    "0.00",
                     xy=(xi, 0.0),
                     fontsize=6, ha="center", va="bottom",
                     color=color, fontweight="bold",
