@@ -726,18 +726,28 @@ class TestPortHamiltonianConstraint:
         grad_H = ph_fixed.compute_hamiltonian_gradient(z)
         torch.testing.assert_close(grad_H, z, atol=1e-5, rtol=1e-5)
 
-    # -- project (dynamics) --
+    # -- compute_ph_dynamics (renamed from project) --
 
-    def test_project_output_shape(self, ph_hard):
+    def test_compute_ph_dynamics_output_shape(self, ph_hard):
         torch.manual_seed(0)
         z = torch.randn(BATCH_SIZE, 4)
-        dz_dt = ph_hard.project(z)
+        dz_dt = ph_hard.compute_ph_dynamics(z)
         assert dz_dt.shape == (BATCH_SIZE, 4)
 
-    def test_project_requires_state_dim(self):
+    def test_compute_ph_dynamics_requires_state_dim(self):
         c = PortHamiltonianConstraint(mode="soft", state_dim=None)
         with pytest.raises(ValueError, match="state_dim required"):
-            c.project(torch.randn(2, 4))
+            c.compute_ph_dynamics(torch.randn(2, 4))
+
+    def test_project_raises_not_implemented(self, ph_hard):
+        """project() raises NotImplementedError — use PortHamiltonianODEFunc instead."""
+        z = torch.randn(BATCH_SIZE, 4)
+        with pytest.raises(NotImplementedError):
+            ph_hard.project(z)
+
+    def test_default_mode_is_soft(self):
+        c = PortHamiltonianConstraint(state_dim=4)
+        assert c.mode == "soft"
 
     # -- compute_violation --
 
@@ -766,14 +776,23 @@ class TestPortHamiltonianConstraint:
 
     # -- forward() --
 
-    def test_forward_hard_output_types(self, ph_hard):
+    def test_forward_hard_raises_not_implemented(self, ph_hard):
+        """Hard mode calls project() which raises NotImplementedError."""
         torch.manual_seed(0)
         z = torch.randn(BATCH_SIZE, 4)
-        z_out, violation = ph_hard(z)
+        with pytest.raises(NotImplementedError):
+            ph_hard(z)
+
+    def test_forward_soft_with_state_dim(self):
+        """Soft mode with state_dim: returns z unchanged, violation >= 0."""
+        torch.manual_seed(0)
+        c = PortHamiltonianConstraint(mode="soft", state_dim=4)
+        z = torch.randn(BATCH_SIZE, 4)
+        z_out, violation = c(z)
         assert isinstance(z_out, torch.Tensor)
         assert isinstance(violation, torch.Tensor)
-        assert z_out.shape == (BATCH_SIZE, 4)
-        assert violation.item() == 0.0
+        torch.testing.assert_close(z_out, z)
+        assert violation.item() >= -1e-6
 
     def test_forward_soft_output_types(self, ph_soft_no_dim):
         """Soft mode without initialized structure returns z unchanged and
@@ -884,7 +903,7 @@ class TestGENERICConstraint:
         assert S.shape == (BATCH_SIZE,)
 
     def test_entropy_boltzmann_default(self, generic_fixed):
-        """Non-learnable S: S(z) = -sum(|z_i| ln |z_i|)."""
+        """Non-learnable S: S(z) = -sum(z_i ln z_i) for positive z."""
         z = torch.tensor([[1.0, 1.0, 1.0, 1.0]])
         S = generic_fixed.compute_entropy(z)
         # -sum(1 * ln(1)) = 0
@@ -899,18 +918,27 @@ class TestGENERICConstraint:
         assert grad_E.shape == (BATCH_SIZE, 4)
         assert grad_S.shape == (BATCH_SIZE, 4)
 
-    # -- project (GENERIC dynamics) --
+    # -- compute_generic_dynamics --
 
-    def test_project_output_shape(self, generic_hard):
+    def test_compute_generic_dynamics_output_shape(self, generic_hard):
         torch.manual_seed(0)
         z = torch.randn(BATCH_SIZE, 4)
-        dz_dt = generic_hard.project(z)
+        dz_dt = generic_hard.compute_generic_dynamics(z)
         assert dz_dt.shape == (BATCH_SIZE, 4)
 
-    def test_project_requires_state_dim(self):
+    def test_compute_generic_dynamics_requires_state_dim(self):
         c = GENERICConstraint(mode="soft", state_dim=None)
         with pytest.raises(ValueError, match="state_dim required"):
-            c.project(torch.randn(2, 4))
+            c.compute_generic_dynamics(torch.randn(2, 4))
+
+    def test_project_raises_not_implemented(self, generic_hard):
+        z = torch.randn(BATCH_SIZE, 4)
+        with pytest.raises(NotImplementedError):
+            generic_hard.project(z)
+
+    def test_default_mode_is_soft(self):
+        c = GENERICConstraint()
+        assert c.mode == "soft"
 
     # -- compute_violation --
 
@@ -957,14 +985,20 @@ class TestGENERICConstraint:
 
     # -- forward() --
 
-    def test_forward_hard_output_types(self, generic_hard):
+    def test_forward_hard_raises_not_implemented(self, generic_hard):
         torch.manual_seed(0)
         z = torch.randn(BATCH_SIZE, 4)
-        z_out, violation = generic_hard(z)
-        assert isinstance(z_out, torch.Tensor)
+        with pytest.raises(NotImplementedError):
+            generic_hard(z)
+
+    def test_forward_soft_with_state_dim(self):
+        torch.manual_seed(0)
+        c = GENERICConstraint(mode="soft", state_dim=4)
+        z = torch.randn(2, 5, 4)
+        z_out, violation = c(z)
+        torch.testing.assert_close(z_out, z)
         assert isinstance(violation, torch.Tensor)
-        assert z_out.shape == (BATCH_SIZE, 4)
-        assert violation.item() == 0.0
+        assert violation.item() >= 0.0
 
     def test_forward_soft_output_types(self, generic_soft_no_dim):
         """Soft mode without initialized structure returns z unchanged and
@@ -1139,7 +1173,7 @@ class TestOutputShapesAndTypes:
 
     def test_port_hamiltonian_2d_shape(self):
         torch.manual_seed(0)
-        c = PortHamiltonianConstraint(mode="hard", state_dim=4)
+        c = PortHamiltonianConstraint(mode="soft", state_dim=4)
         z = torch.randn(BATCH_SIZE, 4)
         z_out, viol = c(z)
         assert z_out.shape == (BATCH_SIZE, 4)
@@ -1147,7 +1181,7 @@ class TestOutputShapesAndTypes:
 
     def test_generic_2d_shape(self):
         torch.manual_seed(0)
-        c = GENERICConstraint(mode="hard", state_dim=4)
+        c = GENERICConstraint(mode="soft", state_dim=4)
         z = torch.randn(BATCH_SIZE, 4)
         z_out, viol = c(z)
         assert z_out.shape == (BATCH_SIZE, 4)
@@ -1186,7 +1220,7 @@ class TestGradientFlow:
         torch.manual_seed(0)
         c = PortHamiltonianConstraint(mode="hard", state_dim=4)
         z = torch.randn(2, 4, requires_grad=True)
-        dz_dt = c.project(z)
+        dz_dt = c.compute_ph_dynamics(z)
         loss = dz_dt.sum()
         loss.backward()
         assert z.grad is not None
@@ -1195,7 +1229,7 @@ class TestGradientFlow:
         torch.manual_seed(0)
         c = GENERICConstraint(mode="hard", state_dim=4)
         z = torch.randn(2, 4, requires_grad=True)
-        dz_dt = c.project(z)
+        dz_dt = c.compute_generic_dynamics(z)
         loss = dz_dt.sum()
         loss.backward()
         assert z.grad is not None

@@ -195,6 +195,10 @@ def _train(
             _, pos_viol = pos_constraint(preds[..., :N_SPECIES])
             loss = loss + mass_viol + pos_viol
         elif constraint_mode == "hard" and mass_constraint and pos_constraint:
+            # Mass balance first, positivity (ReLU) last. Positivity is the
+            # final projection so it is exactly guaranteed on every forward pass.
+            # The subsequent ReLU introduces a small residual mass imbalance,
+            # which is consistent (low variance) but non-zero.
             concs, mass_viol = mass_constraint(preds[..., :N_SPECIES])
             concs, pos_viol = pos_constraint(concs)
             preds = torch.cat([concs, preds[..., N_SPECIES:]], dim=-1)

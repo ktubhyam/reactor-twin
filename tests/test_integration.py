@@ -497,10 +497,10 @@ class TestRegistryCompleteness:
         for key in expected:
             assert key in NEURAL_DE_REGISTRY, f"Missing neural DE: {key}"
 
-    def test_version_is_1_0_0(self) -> None:
+    def test_version_is_1_1_0(self) -> None:
         import reactor_twin
 
-        assert reactor_twin.__version__ == "1.0.0"
+        assert reactor_twin.__version__ == "1.1.0"
 
 
 # ── 14. Membrane reactor integration ─────────────────────────────────

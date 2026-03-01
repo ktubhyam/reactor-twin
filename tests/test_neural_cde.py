@@ -209,13 +209,35 @@ class TestNeuralCDELoss:
 
 
 class TestNeuralCDEIrregular:
-    def test_forward_with_irregular_raises(self):
+    def test_forward_with_irregular_raises_for_2d_times(self):
+        """2D observation_times (per-batch) must raise ValueError."""
         model = NeuralCDE(state_dim=4, input_dim=3)
         obs = torch.randn(2, 5, 3)
-        obs_times = torch.randn(2, 5)
+        obs_times = torch.randn(2, 5)  # 2D — not supported
         pred_times = torch.linspace(0, 1, 10)
-        with pytest.raises(NotImplementedError, match="Irregular observations"):
+        with pytest.raises(ValueError, match="observation_times must be 1D"):
             model.forward_with_irregular_observations(obs, obs_times, pred_times)
+
+    def test_forward_with_irregular_observations_shape(self):
+        """Irregularly-sampled observations produce correct output shape."""
+        torch.manual_seed(0)
+        model = NeuralCDE(state_dim=4, input_dim=3, interpolation="linear")
+        batch, num_obs, input_dim = 2, 5, 3
+        obs = torch.randn(batch, num_obs, input_dim)
+        obs_times = torch.tensor([0.0, 0.2, 0.5, 0.7, 1.0])
+        pred_times = torch.tensor([0.0, 0.25, 0.5, 0.75, 1.0])
+        out = model.forward_with_irregular_observations(obs, obs_times, pred_times)
+        assert out.shape == (batch, len(pred_times), model.output_dim)
+
+    def test_forward_with_irregular_observations_pred_at_obs_times(self):
+        """Predicting at observation times gives finite outputs."""
+        torch.manual_seed(1)
+        model = NeuralCDE(state_dim=4, input_dim=2, interpolation="linear")
+        obs = torch.randn(3, 4, 2)
+        obs_times = torch.tensor([0.0, 0.3, 0.6, 1.0])
+        out = model.forward_with_irregular_observations(obs, obs_times, obs_times)
+        assert out.shape == (3, 4, model.output_dim)
+        assert torch.all(torch.isfinite(out))
 
 
 class TestNeuralCDEGradients:
