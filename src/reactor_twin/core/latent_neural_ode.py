@@ -241,6 +241,10 @@ class LatentNeuralODE(AbstractNeuralDE):
         self.rtol = rtol
         self._integrate = odeint_adjoint if adjoint else odeint
 
+        # Cache encoder output from the most recent forward() call for use in compute_loss()
+        self._last_z_mean: torch.Tensor | None = None
+        self._last_z_logvar: torch.Tensor | None = None
+
         logger.info(
             f"Initialized LatentNeuralODE: "
             f"state_dim={state_dim}, latent_dim={latent_dim}, "
@@ -309,8 +313,10 @@ class LatentNeuralODE(AbstractNeuralDE):
         Returns:
             Predicted observations, shape (batch, num_times, output_dim).
         """
-        # Encode to latent space
+        # Encode to latent space and cache for compute_loss()
         z_mean, z_logvar = self.encode(z0)
+        self._last_z_mean = z_mean
+        self._last_z_logvar = z_logvar
 
         # Sample latent initial condition
         z_latent = self.reparameterize(z_mean, z_logvar)
@@ -356,11 +362,14 @@ class LatentNeuralODE(AbstractNeuralDE):
         # Reconstruction loss (MSE)
         reconstruction_loss = torch.mean((predictions - targets) ** 2)
 
-        # KL divergence (computed from encoder output)
-        # This requires encoding the initial observation again
-        # For simplicity, we compute it on the first time point
-        x0 = targets[:, 0, :]  # (batch, state_dim)
-        z_mean, z_logvar = self.encode(x0)
+        # KL divergence — use encoder output from the most recent forward() call.
+        # Fallback: re-encode the initial time point of targets (pre-fix behaviour).
+        if self._last_z_mean is not None and self._last_z_logvar is not None:
+            z_mean = self._last_z_mean
+            z_logvar = self._last_z_logvar
+        else:
+            x0 = targets[:, 0, :]  # (batch, state_dim)
+            z_mean, z_logvar = self.encode(x0)
 
         # KL(q(z) || p(z)) where p(z) = N(0, I)
         kl_loss = -0.5 * torch.sum(1 + z_logvar - z_mean.pow(2) - z_logvar.exp())

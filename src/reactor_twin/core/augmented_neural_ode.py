@@ -86,6 +86,9 @@ class AugmentedNeuralODE(AbstractNeuralDE):
         self.rtol = rtol
         self._integrate = odeint_adjoint if adjoint else odeint
 
+        # Cache the full augmented trajectory from the most recent forward() call
+        self._last_augmented: torch.Tensor | None = None
+
         logger.info(
             f"Initialized AugmentedNeuralODE: "
             f"state_dim={state_dim}, augment_dim={augment_dim}, "
@@ -154,6 +157,9 @@ class AugmentedNeuralODE(AbstractNeuralDE):
         # Transpose to (batch, time, full_dim)
         z_trajectory_full = cast(torch.Tensor, z_trajectory_full).transpose(0, 1)
 
+        # Cache for use in compute_loss()
+        self._last_augmented = z_trajectory_full
+
         # Extract physical dimensions
         z_trajectory = self.extract_physical(z_trajectory_full)
 
@@ -182,11 +188,13 @@ class AugmentedNeuralODE(AbstractNeuralDE):
         # Data-fitting loss (MSE on physical dimensions)
         data_loss = torch.mean((predictions - targets) ** 2)
 
-        # Augmented dimension regularization (encourage small augmented states)
-        # This requires accessing the full augmented trajectory
-        # For simplicity, we skip this in the base implementation
-        # It would be added in the training loop if needed
-        augment_reg = torch.tensor(0.0, device=predictions.device)
+        # Augmented dimension regularization: penalise large augmented states.
+        # Uses the full augmented trajectory cached by the most recent forward() call.
+        if self._last_augmented is not None:
+            z_aug = self._last_augmented[..., self.state_dim:]  # (batch, time, augment_dim)
+            augment_reg = torch.mean(z_aug ** 2)
+        else:
+            augment_reg = torch.tensor(0.0, device=predictions.device)
 
         # Total loss
         total_loss = (
@@ -194,15 +202,11 @@ class AugmentedNeuralODE(AbstractNeuralDE):
             + loss_weights.get("augment_reg", 0.01) * augment_reg
         )
 
-        losses = {
+        return {
             "total": total_loss,
             "data": data_loss,
+            "augment_reg": augment_reg,
         }
-
-        if augment_reg.item() > 0:
-            losses["augment_reg"] = augment_reg
-
-        return losses
 
     def get_augmented_trajectory(
         self,
