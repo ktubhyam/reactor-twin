@@ -512,6 +512,144 @@ def run_ablation(rng_seed: int = 0) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Convergence curve
+# ---------------------------------------------------------------------------
+
+N_CONVERGENCE_EPOCHS = 500
+CONV_LOG_INTERVAL = 10   # evaluate every N epochs
+
+
+def _train_convergence(
+    sys_key: str,
+    z0_train: torch.Tensor,
+    t_span: torch.Tensor,
+    targets_train: torch.Tensor,
+    z0_val: torch.Tensor,
+    targets_val: torch.Tensor,
+    condition: str,
+    seed: int,
+    lambda_weight: float = LAMBDA_WEIGHT,
+) -> dict[str, Any]:
+    """Train and return per-epoch violation rates and NMSE.
+
+    Returns:
+        epochs:        list of epoch indices where evaluation was done
+        viol_curve:    list of physics_viol at each logged epoch
+        nmse_curve:    list of nmse_long at each logged epoch
+        condition:     passed through for labelling
+    """
+    torch.manual_seed(seed)
+    state_dim = z0_train.shape[1]
+    cfg = SYSTEMS[sys_key]
+    n_species = cfg["n_species"]
+    pos_indices = cfg["pos_indices"]
+
+    model = NeuralODE(
+        state_dim=state_dim,
+        hidden_dim=HIDDEN_DIM,
+        num_layers=NUM_LAYERS,
+        solver="rk4",
+        adjoint=False,
+    )
+    constraint = _build_constraint(sys_key, condition)
+    optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=N_CONVERGENCE_EPOCHS
+    )
+
+    norm_factors = targets_val.abs().mean(dim=(0, 1))
+    norm_sq = (norm_factors ** 2 + 1e-8).unsqueeze(0).unsqueeze(0)
+
+    epochs_logged: list[int] = []
+    viol_curve: list[float] = []
+    nmse_curve: list[float] = []
+
+    for epoch in range(N_CONVERGENCE_EPOCHS):
+        model.train()
+        optimizer.zero_grad()
+        preds = model(z0_train, t_span)
+
+        if condition == "none" or constraint is None:
+            loss = torch.mean((preds - targets_train) ** 2)
+        elif condition in ("soft", "soft_high"):
+            loss = torch.mean((preds - targets_train) ** 2)
+            if cfg["constraint_type"] == "positivity":
+                concs = preds[..., pos_indices] if pos_indices else preds[..., :n_species]
+                _, viol = constraint(concs)
+            else:
+                constraint.reset()  # type: ignore[union-attr]
+                _, viol = constraint(preds[..., :n_species])
+            loss = loss + lambda_weight * viol
+        else:  # hard
+            preds_proj = _apply_hard_constraint(preds, constraint, sys_key)
+            loss = torch.mean((preds_proj - targets_train) ** 2)
+
+        loss.backward()  # type: ignore[no-untyped-call]
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=GRAD_CLIP)
+        optimizer.step()
+        scheduler.step()
+
+        if (epoch + 1) % CONV_LOG_INTERVAL == 0 or epoch == 0:
+            model.eval()
+            with torch.no_grad():
+                raw_preds = model(z0_val, t_span)
+                val_preds = (
+                    _apply_hard_constraint(raw_preds, constraint, sys_key)
+                    if condition == "hard" else raw_preds
+                )
+            viol = _compute_physics_viol(val_preds, sys_key)
+            nmse = _nmse_slice(val_preds, targets_val, LONG_START, N_TIMES, norm_sq)
+            epochs_logged.append(epoch + 1)
+            viol_curve.append(viol)
+            nmse_curve.append(nmse)
+
+    return {
+        "epochs": epochs_logged,
+        "viol_curve": viol_curve,
+        "nmse_curve": nmse_curve,
+        "condition": condition,
+        "seed": seed,
+    }
+
+
+def run_convergence_curve(rng_seed: int = 3) -> dict[str, Any]:
+    """Track violations vs training epoch for all 4 conditions on exothermic CSTR.
+
+    This is the core visual argument: hard = 0 from epoch 1 (architectural),
+    soft plateaus above 0 (training-inference gap), high seed variance for soft.
+    """
+    print(f"\n{'='*60}")
+    print(f"Convergence curve — Exothermic CSTR, {N_CONVERGENCE_EPOCHS} epochs")
+    print(f"{'='*60}")
+
+    rng = np.random.default_rng(rng_seed)
+    z0_train, t_span, traj_train = _generate_dataset(
+        "exothermic_cstr", N_TRAIN_TRAJ, rng
+    )
+    z0_val, _, traj_val = _generate_dataset("exothermic_cstr", N_VAL_TRAJ, rng)
+
+    conv_results: dict[str, list[dict[str, Any]]] = {c: [] for c in CONDITIONS}
+
+    for cond in CONDITIONS:
+        print(f"\n  Condition: {cond!r}")
+        lam = LAMBDA_HIGH if cond == "soft_high" else LAMBDA_WEIGHT
+        for seed in SEEDS:
+            r = _train_convergence(
+                "exothermic_cstr",
+                z0_train, t_span, traj_train,
+                z0_val, traj_val,
+                condition=cond,
+                seed=seed,
+                lambda_weight=lam,
+            )
+            conv_results[cond].append(r)
+            final_viol = r["viol_curve"][-1]
+            print(f"    seed={seed}  final_viol={final_viol:.4f}")
+
+    return conv_results
+
+
+# ---------------------------------------------------------------------------
 # Lambda sweep
 # ---------------------------------------------------------------------------
 
@@ -812,6 +950,7 @@ def _save_json(
     all_results: dict[str, Any],
     sweep: dict[str, Any],
     speedup: dict[str, Any],
+    convergence: dict[str, Any] | None = None,
 ) -> None:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -837,6 +976,7 @@ def _save_json(
         "ablation": all_results,
         "lambda_sweep": sweep_serializable,
         "speedup": speedup,
+        "convergence": convergence,
     }
 
     out_path = RESULTS_DIR / "paper_results.json"
@@ -896,6 +1036,9 @@ def main() -> None:
     # 3. Speedup benchmark
     speedup = run_speedup_benchmark(rng_seed=2)
 
+    # 4. Convergence curve (violations vs epoch — core visual argument)
+    convergence = run_convergence_curve(rng_seed=3)
+
     # Print tables
     _print_ablation_table(all_results)
     _print_lambda_table(sweep)
@@ -903,7 +1046,7 @@ def main() -> None:
     _print_paper_summary(all_results)
 
     # Save
-    _save_json(all_results, sweep, speedup)
+    _save_json(all_results, sweep, speedup, convergence)
 
     total_time = time.perf_counter() - t_total_start
     print(f"\nTotal wall time: {total_time / 60:.1f} min")
